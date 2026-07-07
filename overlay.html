@@ -1,0 +1,286 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Yape Superchat Overlay</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<style>
+  :root {
+    --author-avatar-size: 70px;
+    --author-avatar-border-size: 3px;
+    --author-avatar-border-color: #20E7B9;
+    --author-bg-color: #20E7B9;
+    --author-color: #06251f;
+    --author-font-size: 15px;
+    --author-font-weight: 700;
+
+    --donation-color: #5a4211;
+    --donation-gradient-stop0: #bf953f;
+    --donation-gradient-stop1: #ede599;
+    --donation-gradient-stop2: #b38728;
+  }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: transparent;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    font-family: 'Roboto', 'Segoe UI', Arial, sans-serif;
+  }
+
+  #stack {
+    position: fixed;
+    left: 0;
+    bottom: 0;
+  }
+
+  .superchat {
+    position: fixed;
+    left: 80px;
+    bottom: 70px;
+    width: 900px;
+    transform-origin: bottom left;
+    transform: scale(1.2) translate3d(0, 200px, 0);
+    transition: transform 0.32s cubic-bezier(.34,1.56,.64,1);
+  }
+
+  .superchat.show {
+    transform: scale(1.2) translate3d(0, 0, 0);
+  }
+
+  .superchat.exiting {
+    transform: scale(1.2) translate3d(0, 160px, 0) !important;
+    transition: transform 0.32s cubic-bezier(.34,1.56,.64,1) !important;
+  }
+
+  .hl-message {
+    position: absolute;
+    top: -47px;
+    left: 40px;
+    max-width: 760px;
+    min-width: 80px;
+    background: var(--author-bg-color);
+    padding: 12px 20px 12px 56px;
+  }
+
+  .hl-img {
+    box-sizing: border-box;
+    position: absolute;
+    top: -10px;
+    left: -40px;
+    width: 80px;
+    height: 80px;
+    background: var(--author-avatar-border-color);
+    border-radius: 50%;
+    padding: var(--author-avatar-border-size);
+    z-index: 3;
+  }
+
+  .hl-img img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    background: #fff;
+    object-fit: contain;
+    object-position: 40% center;
+  }
+
+  .hl-name {
+    position: absolute;
+    top: -30px;
+    left: 20px;
+    font-weight: var(--author-font-weight);
+    background: var(--author-bg-color);
+    color: var(--author-color);
+    padding: 8px 14px;
+    z-index: 2;
+    font-size: var(--author-font-size);
+    white-space: nowrap;
+  }
+
+  .text {
+    color: var(--author-color);
+    font-weight: 700;
+    font-size: 17px;
+    line-height: 1.35;
+    word-break: break-word;
+  }
+
+  .text em {
+    font-weight: 400;
+    opacity: 0.75;
+  }
+
+  .donation {
+    position: absolute;
+    top: 50px;
+    left: 0;
+    z-index: 4;
+    min-width: 76px;
+    text-align: center;
+    border-radius: 5px;
+    overflow: hidden;
+    background: linear-gradient(to right, var(--donation-gradient-stop0), var(--donation-gradient-stop1), var(--donation-gradient-stop2));
+    color: #fdfdfd;
+    transform: rotate(-5deg) translateX(-50%);
+  }
+
+  .donation::after {
+    content: "";
+    position: absolute;
+    top: -50%;
+    left: 0;
+    height: 200%;
+    width: 1px;
+    background-color: #fff;
+    box-shadow: 0 0 20px 20px #fff;
+    opacity: 0.7;
+    transform: rotate(9deg) translate3d(-60px, 0, 0);
+    animation: superchat-shimmer 3s ease-in-out infinite;
+    pointer-events: none;
+  }
+
+  @keyframes superchat-shimmer {
+    0% { transform: rotate(9deg) translate3d(-60px, 0, 0); }
+    100% { transform: rotate(9deg) translate3d(200px, 0, 0); }
+  }
+
+  .donation-title {
+    width: 100%;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.05em;
+    background-color: rgba(0, 0, 0, 0.15);
+    padding: 2px 4px 1px;
+    color: #fff;
+  }
+
+  .donation-subtitle {
+    font-size: 13px;
+    font-weight: 800;
+    padding: 1px 5px 2px;
+    color: var(--donation-color);
+  }
+</style>
+</head>
+<body>
+  <div id="stack"></div>
+
+  <audio id="alert-sound" src="alert.mp3" preload="auto"></audio>
+
+<script>
+  const SUPABASE_URL = 'https://jyjnqdvdrztjlptvfmms.supabase.co';
+  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp5am5xZHZkcnp0amxwdHZmbW1zIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM0NTg2NDIsImV4cCI6MjA5OTAzNDY0Mn0.OyhPpooJ0IIHJqD3ust5O34DM6gQpF3A4As5GNs0XUg';
+  const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  const stack = document.getElementById('stack');
+  const sound = document.getElementById('alert-sound');
+  const cardsById = new Map();
+
+  const yapeLogoSvg = `<img src="logo/logo.png" alt="logo">`;
+
+  // Al conectar (o reconectar) primero se revisa si ya hay un pago activo en
+  // ese momento en la base de datos, para no depender de que llegue un
+  // evento nuevo si el overlay se recarga a mitad de un pago mostrado.
+  async function syncCurrent() {
+    const { data, error } = await sb
+      .from('payments')
+      .select('*')
+      .eq('on_overlay', true)
+      .limit(1)
+      .maybeSingle();
+    if (error) { console.error(error); return; }
+    if (data) showCard(data); else hideAll();
+  }
+
+  function connect() {
+    sb.channel('overlay-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'payments' }, (payload) => {
+        if (payload.eventType === 'DELETE') {
+          hideCard(payload.old.id);
+          return;
+        }
+        if (payload.new.on_overlay) {
+          showCard(payload.new);
+        } else {
+          hideCard(payload.new.id);
+        }
+      })
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') syncCurrent();
+      });
+  }
+
+  function tierColor(amount) {
+    const n = parseFloat(amount) || 0;
+    if (n >= 100) return '#DD2919';
+    if (n >= 50) return '#E02766';
+    if (n >= 20) return '#F17E05';
+    if (n >= 10) return '#FCCB2B';
+    if (n >= 5) return '#00E5F9';
+    return '#00E5F9';
+  }
+
+  function removeCard(el) {
+    el.classList.add('exiting');
+    setTimeout(() => el.remove(), 220);
+  }
+
+  function showCard(payment) {
+    // Solo se muestra una tarjeta a la vez: se quita cualquier tarjeta que
+    // siga en el DOM al instante (incluso si estaba a mitad de su animacion
+    // de salida por un dismiss automatico) para que no se solape con la
+    // entrada de la nueva.
+    stack.querySelectorAll('.superchat').forEach((el) => el.remove());
+    cardsById.clear();
+
+    const name = payment.name || 'Alguien';
+    const color = tierColor(payment.amount);
+    const el = document.createElement('div');
+    el.className = 'superchat';
+    el.style.setProperty('--author-bg-color', color);
+    el.style.setProperty('--author-avatar-border-color', color);
+    el.innerHTML = `
+      <div class="hl-message">
+        <div class="hl-img">${yapeLogoSvg}</div>
+        <div class="hl-name">${name}</div>
+        <div class="donation">
+          <div class="donation-title">YAPE</div>
+          <div class="donation-subtitle">S/. ${payment.amount || '0.00'}</div>
+        </div>
+        <div class="text">${payment.message ? payment.message : '<em>(sin mensaje)</em>'}</div>
+      </div>
+    `;
+    stack.appendChild(el);
+    cardsById.set(payment.id, el);
+
+    sound.currentTime = 0;
+    sound.play().catch(() => {});
+
+    // Forzar reflow para que el navegador registre el estado inicial
+    // antes de animar (si no, a veces el transition de entrada se pierde).
+    void el.offsetHeight;
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => el.classList.add('show'));
+    });
+  }
+
+  function hideCard(id) {
+    const el = cardsById.get(id);
+    if (!el) return;
+    removeCard(el);
+    cardsById.delete(id);
+  }
+
+  function hideAll() {
+    stack.querySelectorAll('.superchat').forEach((el) => el.remove());
+    cardsById.clear();
+  }
+
+  connect();
+</script>
+</body>
+</html>
