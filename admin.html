@@ -187,7 +187,8 @@
   .live-badge.warn .live-dot { background: #FFC94D; animation: none; box-shadow: none; }
   .live-badge.mute .live-dot { background: rgba(255,255,255,.45); animation: none; box-shadow: none; }
   .live-badge svg { width: 15px; height: 15px; flex-shrink: 0; opacity: .9; }
-  body.locked #phone { display: none; }
+  #phones { display: contents; }
+  body.locked #phones { display: none; }
   @keyframes livePulse {
     0% { box-shadow: 0 0 0 0 rgba(32,231,185,.55); }
     70% { box-shadow: 0 0 0 8px rgba(32,231,185,0); }
@@ -665,10 +666,7 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>
     </button>
     <button class="theme-toggle" id="theme-toggle" onclick="toggleTheme()" title="Cambiar modo claro/oscuro" aria-label="Cambiar tema"></button>
-    <div class="live-badge mute" id="phone" title="Estado de la app en tu celular">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="2" width="10" height="20" rx="2.5"/><path d="M11 18h2"/></svg>
-      <span class="live-dot"></span><span id="phone-text">Celular sin vincular</span>
-    </div>
+    <div id="phones"></div>
     <div class="live-badge" id="conn"><span class="live-dot"></span><span id="conn-text">Conectando…</span></div>
   </header>
 
@@ -848,15 +846,19 @@
       document.querySelector('.app-header .subtitle').textContent =
         `Aprueba los pagos para que salgan en vivo en tu stream · ${account.channel_name}`;
     }
+    const { data: devs } = await sb.from('devices').select('*');
+    devices = devs || [];
     document.body.classList.remove('locked');
-    renderPhone();
-    setInterval(renderPhone, 30000); // el "hace X min" envejece solo
+    renderPhones();
+    setInterval(renderPhones, 30000); // el "hace X min" envejece solo
     connect();
   }
 
-  // ---------- Estado del celular (latido de la app Android) ----------
-  // La app manda un ping cada ~90 s mientras puede captar yapes; aqui se
-  // traduce a "conectado / sin señal / sin vincular" + el modelo del equipo.
+  // ---------- Estado de los celulares (latido de la app Android) ----------
+  // Cada celular vinculado manda un ping cada ~90 s y tiene su propia fila en
+  // `devices`: se muestra un badge por celular con su estado.
+  let devices = [];
+
   function agoText(ms) {
     const min = Math.round(ms / 60000);
     if (min < 60) return `hace ${Math.max(min, 1)} min`;
@@ -865,39 +867,68 @@
     return `hace ${Math.round(h / 24)} días`;
   }
 
-  function renderPhone() {
-    const badge = document.getElementById('phone');
-    const text = document.getElementById('phone-text');
-    badge.classList.remove('warn', 'off', 'mute');
-    if (!account || !account.device_last_seen) {
-      badge.classList.add('mute');
-      text.textContent = 'Celular sin vincular';
-      badge.title = 'Vincula la app Yape Alert de tu celular con el código de "Mis enlaces"';
+  const PHONE_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="2" width="10" height="20" rx="2.5"/><path d="M11 18h2"/></svg>';
+
+  function phoneBadge(cls, text, title) {
+    const div = document.createElement('div');
+    div.className = `live-badge ${cls}`;
+    div.title = title;
+    div.innerHTML = `${PHONE_SVG}<span class="live-dot"></span><span>${escapeHtml(text)}</span>`;
+    return div;
+  }
+
+  function deviceStatus(d) {
+    const device = d.device_name || 'Celular';
+    const age = Date.now() - new Date(d.last_seen).getTime();
+    if (age >= 3 * 60000) {
+      return {
+        cls: age < 15 * 60000 ? 'warn' : 'off',
+        text: `${device} · sin señal ${agoText(age)}`,
+        title: 'La app de ese celular dejó de dar señales: ábrela y revisa que los permisos sigan activos',
+      };
+    }
+    if (d.a11y === false) {
+      return {
+        cls: 'warn',
+        text: `${device} · lector de mensajes apagado`,
+        title: 'La app está viva pero el servicio de accesibilidad no corre: los yapes llegarán SIN mensaje. En el celular: Ajustes → Accesibilidad → Yape Alert (apágalo y préndelo de nuevo si figura activado).',
+      };
+    }
+    if (d.notif === false) {
+      return {
+        cls: 'warn',
+        text: `${device} · sin acceso a notificaciones`,
+        title: 'La app está viva pero no puede ver las notificaciones de Yape: activa el acceso en el paso 2 de la app.',
+      };
+    }
+    return {
+      cls: '',
+      text: `${device} · conectado`,
+      title: `La app de ese celular está activa (último aviso ${agoText(age)})`,
+    };
+  }
+
+  function renderPhones() {
+    const wrap = document.getElementById('phones');
+    wrap.innerHTML = '';
+    if (devices.length === 0) {
+      wrap.appendChild(phoneBadge('mute', 'Celular sin vincular',
+        'Vincula la app Yape Alert de tu celular con el código de "Mis enlaces"'));
       return;
     }
-    const device = account.device_name || 'Celular';
-    const age = Date.now() - new Date(account.device_last_seen).getTime();
-    if (age < 3 * 60000) {
-      // Conectado, pero puede que algun permiso este caido: eso tambien se avisa.
-      if (account.device_a11y === false) {
-        badge.classList.add('warn');
-        text.textContent = `${device} · lector de mensajes apagado`;
-        badge.title = 'La app está viva pero el servicio de accesibilidad no corre: los yapes llegarán SIN mensaje. En el celular: Ajustes → Accesibilidad → Yape Alert (apágalo y préndelo de nuevo si figura activado).';
-        return;
-      }
-      if (account.device_notif === false) {
-        badge.classList.add('warn');
-        text.textContent = `${device} · sin acceso a notificaciones`;
-        badge.title = 'La app está viva pero no puede ver las notificaciones de Yape: activa el acceso en el paso 2 de la app.';
-        return;
-      }
-      text.textContent = `${device} · conectado`;
-      badge.title = `La app de tu celular está activa (último aviso ${agoText(age)})`;
-    } else {
-      badge.classList.add(age < 15 * 60000 ? 'warn' : 'off');
-      text.textContent = `${device} · sin señal ${agoText(age)}`;
-      badge.title = 'La app de tu celular dejó de dar señales: ábrela y revisa que los permisos sigan activos';
-    }
+    devices
+      .slice()
+      .sort((a, b) => new Date(b.last_seen) - new Date(a.last_seen))
+      .forEach((d) => {
+        const st = deviceStatus(d);
+        wrap.appendChild(phoneBadge(st.cls, st.text, st.title));
+      });
+  }
+
+  function upsertDevice(row) {
+    const i = devices.findIndex((d) => d.id === row.id);
+    if (i === -1) devices.push(row); else devices[i] = row;
+    renderPhones();
   }
 
   async function logout() {
@@ -1244,10 +1275,8 @@
       .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'payments' }, (payload) => {
         if (paymentsById.has(payload.old.id)) removeRow(payload.old.id);
       })
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'accounts', filter: `user_id=eq.${uid}` }, (payload) => {
-        account = Object.assign({}, account, payload.new);
-        renderPhone();
-      })
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'devices', filter: `user_id=eq.${uid}` }, (payload) => upsertDevice(payload.new))
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'devices', filter: `user_id=eq.${uid}` }, (payload) => upsertDevice(payload.new))
       .subscribe((status) => {
         if (status === 'SUBSCRIBED') {
           setConn(true);
