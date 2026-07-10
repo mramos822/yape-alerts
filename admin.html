@@ -878,6 +878,19 @@
     const device = account.device_name || 'Celular';
     const age = Date.now() - new Date(account.device_last_seen).getTime();
     if (age < 3 * 60000) {
+      // Conectado, pero puede que algun permiso este caido: eso tambien se avisa.
+      if (account.device_a11y === false) {
+        badge.classList.add('warn');
+        text.textContent = `${device} · lector de mensajes apagado`;
+        badge.title = 'La app está viva pero el servicio de accesibilidad no corre: los yapes llegarán SIN mensaje. En el celular: Ajustes → Accesibilidad → Yape Alert (apágalo y préndelo de nuevo si figura activado).';
+        return;
+      }
+      if (account.device_notif === false) {
+        badge.classList.add('warn');
+        text.textContent = `${device} · sin acceso a notificaciones`;
+        badge.title = 'La app está viva pero no puede ver las notificaciones de Yape: activa el acceso en el paso 2 de la app.';
+        return;
+      }
       text.textContent = `${device} · conectado`;
       badge.title = `La app de tu celular está activa (último aviso ${agoText(age)})`;
     } else {
