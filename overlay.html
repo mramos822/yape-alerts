@@ -176,42 +176,49 @@
   const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp5am5xZHZkcnp0amxwdHZmbW1zIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM0NTg2NDIsImV4cCI6MjA5OTAzNDY0Mn0.OyhPpooJ0IIHJqD3ust5O34DM6gQpF3A4As5GNs0XUg';
   const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+  // Cada streamer tiene su propia URL de overlay: overlay.html?key=<overlay_key>.
+  // La clave sale del panel (boton "Mis enlaces") y es secreta.
+  const OVERLAY_KEY = new URLSearchParams(location.search).get('key');
+
   const stack = document.getElementById('stack');
   const sound = document.getElementById('alert-sound');
   const cardsById = new Map();
 
   const yapeLogoSvg = `<img src="logo/logo.png" alt="logo">`;
 
-  // Al conectar (o reconectar) primero se revisa si ya hay un pago activo en
-  // ese momento en la base de datos, para no depender de que llegue un
-  // evento nuevo si el overlay se recarga a mitad de un pago mostrado.
+  // Unica fuente de verdad: le pregunta a la base cual es el pago activo de
+  // esta cuenta ahora mismo. Se llama al conectar, cada vez que la base avisa
+  // un cambio, y de fondo cada tanto por si algun aviso se pierde.
   async function syncCurrent() {
-    const { data, error } = await sb
-      .from('payments')
-      .select('*')
-      .eq('on_overlay', true)
-      .limit(1)
-      .maybeSingle();
+    const { data, error } = await sb.rpc('overlay_current', { p_key: OVERLAY_KEY });
     if (error) { console.error(error); return; }
-    if (data) showCard(data); else hideAll();
+    if (data) {
+      // Si ya esta mostrado ese mismo pago con el mismo contenido, no se
+      // vuelve a animar; solo se redibuja cuando cambia algo.
+      const shown = cardsById.get(data.id);
+      const sig = JSON.stringify(data);
+      if (shown && shown._sig === sig) return;
+      showCard(data, sig);
+    } else {
+      hideAll();
+    }
   }
 
-  function connect() {
-    sb.channel('overlay-changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'payments' }, (payload) => {
-        if (payload.eventType === 'DELETE') {
-          hideCard(payload.old.id);
-          return;
-        }
-        if (payload.new.on_overlay) {
-          showCard(payload.new);
-        } else {
-          hideCard(payload.new.id);
-        }
-      })
+  async function connect() {
+    if (!OVERLAY_KEY) {
+      console.error('Falta la clave del overlay: usa el enlace que aparece en "Mis enlaces" del panel.');
+      return;
+    }
+    // Canal privado de broadcast: la base avisa por 'overlay-<key>' cada vez
+    // que cambian los pagos de esta cuenta (ver notify_overlay en SQL).
+    await sb.realtime.setAuth();
+    sb.channel('overlay-' + OVERLAY_KEY, { config: { private: true } })
+      .on('broadcast', { event: 'sync' }, () => { syncCurrent(); })
       .subscribe((status) => {
         if (status === 'SUBSCRIBED') syncCurrent();
       });
+    // Red de seguridad por si un aviso de realtime se pierde.
+    setInterval(syncCurrent, 30000);
   }
 
   function tierColor(amount) {
@@ -224,12 +231,20 @@
     return '#00E5F9';
   }
 
+  // El nombre y el mensaje los escribe el que yapea: se escapan para que
+  // nadie pueda meter HTML/scripts en el stream.
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, (c) => (
+      { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+    ));
+  }
+
   function removeCard(el) {
     el.classList.add('exiting');
     setTimeout(() => el.remove(), 220);
   }
 
-  function showCard(payment) {
+  function showCard(payment, sig) {
     // Solo se muestra una tarjeta a la vez: se quita cualquier tarjeta que
     // siga en el DOM al instante (incluso si estaba a mitad de su animacion
     // de salida por un dismiss automatico) para que no se solape con la
@@ -246,14 +261,15 @@
     el.innerHTML = `
       <div class="hl-message">
         <div class="hl-img">${yapeLogoSvg}</div>
-        <div class="hl-name">${name}</div>
+        <div class="hl-name">${escapeHtml(name)}</div>
         <div class="donation">
           <div class="donation-title">YAPE</div>
           <div class="donation-subtitle">S/. ${payment.amount || '0.00'}</div>
         </div>
-        <div class="text">${payment.message ? payment.message : '<em>(sin mensaje)</em>'}</div>
+        <div class="text">${payment.message ? escapeHtml(payment.message) : '<em>(sin mensaje)</em>'}</div>
       </div>
     `;
+    el._sig = sig || JSON.stringify(payment);
     stack.appendChild(el);
     cardsById.set(payment.id, el);
 

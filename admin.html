@@ -497,6 +497,138 @@
   .toast::before { content: ''; width: 9px; height: 9px; border-radius: 50%; background: var(--teal-bright); }
   .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
+  /* ---------- Pantalla de cuenta (login / registro) ---------- */
+  body.locked .wrap, body.locked .live-badge, body.locked #links-btn, body.locked #logout-btn { display: none; }
+
+  .auth-screen {
+    display: none;
+    max-width: 420px;
+    margin: 48px auto 0;
+    padding: 0 20px;
+  }
+  body.locked .auth-screen { display: block; }
+  .auth-card {
+    background: var(--card);
+    border-radius: 22px;
+    box-shadow: var(--shadow);
+    padding: 28px 26px;
+    animation: hintIn .35s ease both;
+  }
+  .auth-card h2 { margin: 0 0 4px; font-size: 20px; font-weight: 900; color: var(--ink); }
+  .auth-card .auth-sub { margin: 0 0 18px; font-size: 13.5px; color: var(--ink-soft); }
+  .auth-field { margin-bottom: 12px; }
+  .auth-field label { display: block; font-size: 12.5px; font-weight: 800; color: var(--ink-soft); margin-bottom: 5px; }
+  .auth-field input {
+    width: 100%;
+    font-family: inherit;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--ink);
+    background: var(--bg);
+    border: 2px solid var(--purple-100);
+    border-radius: 12px;
+    padding: 11px 13px;
+    outline: none;
+    transition: border-color .18s;
+  }
+  .auth-field input:focus { border-color: var(--purple); }
+  .auth-error {
+    display: none;
+    background: var(--red-soft);
+    color: var(--red);
+    border-radius: 10px;
+    padding: 9px 12px;
+    font-size: 13px;
+    font-weight: 800;
+    margin-bottom: 12px;
+  }
+  .auth-submit {
+    width: 100%;
+    border: none;
+    border-radius: 13px;
+    background: linear-gradient(120deg, var(--purple), var(--purple-bright));
+    color: #fff;
+    font-family: inherit;
+    font-size: 15px;
+    font-weight: 900;
+    padding: 13px;
+    cursor: pointer;
+    transition: transform .18s cubic-bezier(.34,1.56,.64,1), filter .18s;
+  }
+  .auth-submit:hover { transform: translateY(-2px); filter: brightness(1.08); }
+  .auth-submit:disabled { opacity: .6; cursor: wait; transform: none; }
+  .auth-switch { text-align: center; margin: 14px 0 0; font-size: 13.5px; color: var(--ink-soft); }
+  .auth-switch a { color: var(--purple); font-weight: 900; cursor: pointer; text-decoration: none; }
+  .auth-switch a:hover { text-decoration: underline; }
+
+  /* ---------- Modal "Mis enlaces" ---------- */
+  .modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(26, 12, 34, .55);
+    backdrop-filter: blur(3px);
+    display: none;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 60px 20px;
+    z-index: 40;
+  }
+  .modal-backdrop.open { display: flex; }
+  .modal {
+    background: var(--card);
+    border-radius: 22px;
+    box-shadow: var(--shadow-hover);
+    padding: 24px;
+    width: 100%;
+    max-width: 560px;
+    animation: hintIn .28s ease both;
+  }
+  .modal h3 { margin: 0 0 4px; font-size: 18px; font-weight: 900; color: var(--ink); }
+  .modal .modal-sub { margin: 0 0 16px; font-size: 13.5px; color: var(--ink-soft); }
+  .link-block { margin-bottom: 16px; }
+  .link-block .lbl { font-size: 12.5px; font-weight: 900; color: var(--purple); margin-bottom: 5px; }
+  .link-block .hint { font-size: 12.5px; color: var(--ink-mute); margin-top: 5px; }
+  .link-row { display: flex; gap: 8px; }
+  .link-row code {
+    flex: 1;
+    background: var(--purple-50);
+    border: 1px dashed var(--purple-200);
+    border-radius: 10px;
+    padding: 10px 12px;
+    font-size: 12.5px;
+    color: var(--ink);
+    word-break: break-all;
+    overflow-x: auto;
+  }
+  .link-row button {
+    flex-shrink: 0;
+    border: none;
+    border-radius: 10px;
+    background: var(--purple);
+    color: #fff;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 800;
+    padding: 0 16px;
+    cursor: pointer;
+    transition: filter .15s, transform .15s;
+  }
+  .link-row button:hover { filter: brightness(1.12); transform: translateY(-1px); }
+  .modal-close {
+    width: 100%;
+    margin-top: 4px;
+    border: 2px solid var(--purple-100);
+    background: var(--card);
+    color: var(--purple);
+    border-radius: 12px;
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 800;
+    padding: 11px;
+    cursor: pointer;
+  }
+  .modal-close:hover { background: var(--purple-50); }
+
   @media (max-width: 680px) {
     .app-header { padding: 16px 18px; }
     .card {
@@ -515,16 +647,74 @@
   }
 </style>
 </head>
-<body>
+<body class="locked">
   <header class="app-header">
     <div class="logo-badge"><img src="logo/logo.png" alt="Yape"></div>
     <div class="header-text">
       <h1>Moderación de Yapes</h1>
       <p class="subtitle">Aprueba los pagos para que salgan en vivo en tu stream</p>
     </div>
+    <button class="theme-toggle" id="links-btn" onclick="openLinks()" title="Mis enlaces (overlay y código de la app)" aria-label="Mis enlaces">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+    </button>
+    <button class="theme-toggle" id="logout-btn" onclick="logout()" title="Cerrar sesión" aria-label="Cerrar sesión">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+    </button>
     <button class="theme-toggle" id="theme-toggle" onclick="toggleTheme()" title="Cambiar modo claro/oscuro" aria-label="Cambiar tema"></button>
     <div class="live-badge" id="conn"><span class="live-dot"></span><span id="conn-text">Conectando…</span></div>
   </header>
+
+  <!-- Pantalla de acceso (se muestra cuando no hay sesión) -->
+  <div class="auth-screen" id="auth-screen">
+    <div class="auth-card">
+      <h2 id="auth-title">Inicia sesión</h2>
+      <p class="auth-sub" id="auth-sub">Entra con tu cuenta para moderar tus yapes.</p>
+      <div class="auth-error" id="auth-error"></div>
+      <form id="auth-form">
+        <div class="auth-field" id="field-channel" style="display:none">
+          <label for="auth-channel">Nombre de tu canal</label>
+          <input id="auth-channel" type="text" autocomplete="nickname" placeholder="Ej: JuanStream">
+        </div>
+        <div class="auth-field">
+          <label for="auth-email">Correo</label>
+          <input id="auth-email" type="email" autocomplete="email" required placeholder="tucorreo@ejemplo.com">
+        </div>
+        <div class="auth-field">
+          <label for="auth-password">Contraseña</label>
+          <input id="auth-password" type="password" autocomplete="current-password" required minlength="6" placeholder="Mínimo 6 caracteres">
+        </div>
+        <button class="auth-submit" id="auth-submit" type="submit">Entrar</button>
+      </form>
+      <p class="auth-switch" id="auth-switch">
+        ¿No tienes cuenta? <a onclick="setAuthMode('signup')">Crea una gratis</a>
+      </p>
+    </div>
+  </div>
+
+  <!-- Modal con los enlaces propios de la cuenta -->
+  <div class="modal-backdrop" id="links-modal" onclick="if (event.target === this) closeLinks()">
+    <div class="modal">
+      <h3>Mis enlaces</h3>
+      <p class="modal-sub">Estos enlaces son únicos de tu cuenta. No los compartas con nadie.</p>
+      <div class="link-block">
+        <div class="lbl">Overlay para OBS</div>
+        <div class="link-row">
+          <code id="link-overlay">…</code>
+          <button onclick="copyText('link-overlay', 'Enlace del overlay copiado')">Copiar</button>
+        </div>
+        <div class="hint">Agrégalo en OBS como "Fuente de navegador".</div>
+      </div>
+      <div class="link-block">
+        <div class="lbl">Código para la app del celular</div>
+        <div class="link-row">
+          <code id="link-code">…</code>
+          <button onclick="copyText('link-code', 'Código copiado')">Copiar</button>
+        </div>
+        <div class="hint">Pégalo en la app Yape Alert de tu celular, en el paso "Vincula tu cuenta".</div>
+      </div>
+      <button class="modal-close" onclick="closeLinks()">Cerrar</button>
+    </div>
+  </div>
 
   <div class="wrap">
     <div class="tabs">
@@ -567,6 +757,129 @@
   const SUPABASE_URL = 'https://jyjnqdvdrztjlptvfmms.supabase.co';
   const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp5am5xZHZkcnp0amxwdHZmbW1zIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM0NTg2NDIsImV4cCI6MjA5OTAzNDY0Mn0.OyhPpooJ0IIHJqD3ust5O34DM6gQpF3A4As5GNs0XUg';
   const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  // ---------- Cuentas: sesion, login/registro y enlaces propios ----------
+  // El panel exige iniciar sesion: cada streamer solo ve y toca sus pagos
+  // (ademas del RLS en la base, que es lo que de verdad lo garantiza).
+  let uid = null;
+  let account = null; // fila de `accounts`: overlay_key, ingest_code, channel_name
+  let authMode = 'login';
+  let appStarted = false;
+
+  function setAuthMode(mode) {
+    authMode = mode;
+    document.getElementById('field-channel').style.display = mode === 'signup' ? '' : 'none';
+    document.getElementById('auth-title').textContent = mode === 'signup' ? 'Crea tu cuenta' : 'Inicia sesión';
+    document.getElementById('auth-sub').textContent = mode === 'signup'
+      ? 'Gratis. Tendrás tu propio overlay y tu propio panel de yapes.'
+      : 'Entra con tu cuenta para moderar tus yapes.';
+    document.getElementById('auth-submit').textContent = mode === 'signup' ? 'Crear cuenta' : 'Entrar';
+    document.getElementById('auth-password').autocomplete = mode === 'signup' ? 'new-password' : 'current-password';
+    document.getElementById('auth-switch').innerHTML = mode === 'signup'
+      ? '¿Ya tienes cuenta? <a onclick="setAuthMode(\'login\')">Inicia sesión</a>'
+      : '¿No tienes cuenta? <a onclick="setAuthMode(\'signup\')">Crea una gratis</a>';
+    authError('');
+  }
+  window.setAuthMode = setAuthMode;
+
+  function authError(msg) {
+    const el = document.getElementById('auth-error');
+    el.textContent = msg;
+    el.style.display = msg ? 'block' : 'none';
+  }
+
+  function friendlyAuthError(error) {
+    const m = (error && error.message || '').toLowerCase();
+    if (m.includes('invalid login credentials')) return 'Correo o contraseña incorrectos.';
+    if (m.includes('already registered')) return 'Ese correo ya tiene una cuenta. Inicia sesión.';
+    if (m.includes('at least 6')) return 'La contraseña debe tener al menos 6 caracteres.';
+    if (m.includes('valid email')) return 'Escribe un correo válido.';
+    if (m.includes('rate limit') || m.includes('too many')) return 'Demasiados intentos. Espera un momento y vuelve a intentar.';
+    return 'No se pudo completar. Revisa los datos e intenta de nuevo.';
+  }
+
+  document.getElementById('auth-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById('auth-submit');
+    const email = document.getElementById('auth-email').value.trim();
+    const password = document.getElementById('auth-password').value;
+    btn.disabled = true;
+    authError('');
+    try {
+      if (authMode === 'signup') {
+        const channel = document.getElementById('auth-channel').value.trim();
+        const { data, error } = await sb.auth.signUp({
+          email, password,
+          options: { data: { channel_name: channel } },
+        });
+        if (error) { authError(friendlyAuthError(error)); return; }
+        if (!data.session) {
+          authError('Cuenta creada. Revisa tu correo para confirmarla y luego inicia sesión.');
+          setAuthMode('login');
+          return;
+        }
+        await startApp(data.session);
+      } else {
+        const { data, error } = await sb.auth.signInWithPassword({ email, password });
+        if (error) { authError(friendlyAuthError(error)); return; }
+        await startApp(data.session);
+      }
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  async function startApp(session) {
+    if (appStarted) return;
+    appStarted = true;
+    uid = session.user.id;
+    const { data, error } = await sb.from('accounts').select('*').maybeSingle();
+    if (error) console.error(error);
+    account = data;
+    if (account && account.channel_name) {
+      document.querySelector('.app-header .subtitle').textContent =
+        `Aprueba los pagos para que salgan en vivo en tu stream · ${account.channel_name}`;
+    }
+    document.body.classList.remove('locked');
+    connect();
+  }
+
+  async function logout() {
+    await sb.auth.signOut();
+    location.reload();
+  }
+  window.logout = logout;
+
+  function overlayUrl() {
+    if (!account) return '';
+    const u = new URL('overlay.html', location.href);
+    u.searchParams.set('key', account.overlay_key);
+    return u.toString();
+  }
+
+  function openLinks() {
+    if (!account) { toast('No se pudo cargar tu cuenta, recarga la página'); return; }
+    document.getElementById('link-overlay').textContent = overlayUrl();
+    document.getElementById('link-code').textContent = account.ingest_code;
+    document.getElementById('links-modal').classList.add('open');
+  }
+  window.openLinks = openLinks;
+
+  function closeLinks() {
+    document.getElementById('links-modal').classList.remove('open');
+  }
+  window.closeLinks = closeLinks;
+
+  async function copyText(elId, okMsg) {
+    const text = document.getElementById(elId).textContent;
+    try {
+      await navigator.clipboard.writeText(text);
+      toast(okMsg);
+    } catch (e) {
+      toast('No se pudo copiar, selecciónalo manualmente');
+    }
+  }
+  window.copyText = copyText;
 
   // Adapta las columnas snake_case de la tabla a la forma que ya usa todo el
   // codigo de render de abajo (onOverlay, everDismissed, receivedAt en ms).
@@ -846,7 +1159,7 @@
   }
 
   async function loadInitial() {
-    const { data, error } = await sb.from('payments').select('*').order('received_at', { ascending: false });
+    const { data, error } = await sb.from('payments').select('*').eq('user_id', uid).order('received_at', { ascending: false });
     if (error) { toast('No se pudieron cargar los pagos'); console.error(error); return; }
     data.slice().reverse().forEach((row) => renderRow(mapRow(row)));
     applyFilter();
@@ -868,7 +1181,7 @@
   // todo, para no perder cambios que hayan pasado durante el corte.
   function connect() {
     sb.channel('payments-changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'payments' }, handleRealtimeChange)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'payments', filter: `user_id=eq.${uid}` }, handleRealtimeChange)
       .subscribe((status) => {
         if (status === 'SUBSCRIBED') {
           setConn(true);
@@ -913,7 +1226,12 @@
     ? location.hash.slice(1) : 'pending';
   updateThemeIcon();
   setTab(initialTab);
-  connect();
+
+  // Arranque: si ya hay sesion guardada entra directo; si no, pantalla de acceso.
+  (async () => {
+    const { data: { session } } = await sb.auth.getSession();
+    if (session) await startApp(session);
+  })();
 </script>
 </body>
 </html>
