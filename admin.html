@@ -1225,6 +1225,12 @@
   function connect() {
     sb.channel('payments-changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'payments', filter: `user_id=eq.${uid}` }, handleRealtimeChange)
+      // Los DELETE van aparte y sin filtro: el evento solo trae el id de la
+      // fila borrada (sin user_id), asi que el filtro de arriba se los traga.
+      // Si el id es de otra cuenta, aqui no hay tarjeta con ese id y no pasa nada.
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'payments' }, (payload) => {
+        if (paymentsById.has(payload.old.id)) removeRow(payload.old.id);
+      })
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'accounts', filter: `user_id=eq.${uid}` }, (payload) => {
         account = Object.assign({}, account, payload.new);
         renderPhone();
