@@ -187,7 +187,15 @@
   .live-badge.warn .live-dot { background: #FFC94D; animation: none; box-shadow: none; }
   .live-badge.mute .live-dot { background: rgba(255,255,255,.45); animation: none; box-shadow: none; }
   .live-badge svg { width: 15px; height: 15px; flex-shrink: 0; opacity: .9; }
-  #phones { display: contents; }
+  /* Los celulares se listan en vertical (uno por linea), no uno al lado del
+     otro: con varios telefonos el header no se desborda a lo ancho. */
+  #phones {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 6px;
+  }
+  #phones .live-badge { padding: 5px 12px; font-size: 12.5px; }
   body.locked #phones { display: none; }
   @keyframes livePulse {
     0% { box-shadow: 0 0 0 0 rgba(32,231,185,.55); }
