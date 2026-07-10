@@ -184,6 +184,10 @@
     animation: livePulse 1.8s infinite;
   }
   .live-badge.off .live-dot { background: #ff7a7a; animation: none; box-shadow: none; }
+  .live-badge.warn .live-dot { background: #FFC94D; animation: none; box-shadow: none; }
+  .live-badge.mute .live-dot { background: rgba(255,255,255,.45); animation: none; box-shadow: none; }
+  .live-badge svg { width: 15px; height: 15px; flex-shrink: 0; opacity: .9; }
+  body.locked #phone { display: none; }
   @keyframes livePulse {
     0% { box-shadow: 0 0 0 0 rgba(32,231,185,.55); }
     70% { box-shadow: 0 0 0 8px rgba(32,231,185,0); }
@@ -661,6 +665,10 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>
     </button>
     <button class="theme-toggle" id="theme-toggle" onclick="toggleTheme()" title="Cambiar modo claro/oscuro" aria-label="Cambiar tema"></button>
+    <div class="live-badge mute" id="phone" title="Estado de la app en tu celular">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="2" width="10" height="20" rx="2.5"/><path d="M11 18h2"/></svg>
+      <span class="live-dot"></span><span id="phone-text">Celular sin vincular</span>
+    </div>
     <div class="live-badge" id="conn"><span class="live-dot"></span><span id="conn-text">Conectando…</span></div>
   </header>
 
@@ -841,7 +849,42 @@
         `Aprueba los pagos para que salgan en vivo en tu stream · ${account.channel_name}`;
     }
     document.body.classList.remove('locked');
+    renderPhone();
+    setInterval(renderPhone, 30000); // el "hace X min" envejece solo
     connect();
+  }
+
+  // ---------- Estado del celular (latido de la app Android) ----------
+  // La app manda un ping cada ~90 s mientras puede captar yapes; aqui se
+  // traduce a "conectado / sin señal / sin vincular" + el modelo del equipo.
+  function agoText(ms) {
+    const min = Math.round(ms / 60000);
+    if (min < 60) return `hace ${Math.max(min, 1)} min`;
+    const h = Math.round(min / 60);
+    if (h < 48) return `hace ${h} h`;
+    return `hace ${Math.round(h / 24)} días`;
+  }
+
+  function renderPhone() {
+    const badge = document.getElementById('phone');
+    const text = document.getElementById('phone-text');
+    badge.classList.remove('warn', 'off', 'mute');
+    if (!account || !account.device_last_seen) {
+      badge.classList.add('mute');
+      text.textContent = 'Celular sin vincular';
+      badge.title = 'Vincula la app Yape Alert de tu celular con el código de "Mis enlaces"';
+      return;
+    }
+    const device = account.device_name || 'Celular';
+    const age = Date.now() - new Date(account.device_last_seen).getTime();
+    if (age < 3 * 60000) {
+      text.textContent = `${device} · conectado`;
+      badge.title = `La app de tu celular está activa (último aviso ${agoText(age)})`;
+    } else {
+      badge.classList.add(age < 15 * 60000 ? 'warn' : 'off');
+      text.textContent = `${device} · sin señal ${agoText(age)}`;
+      badge.title = 'La app de tu celular dejó de dar señales: ábrela y revisa que los permisos sigan activos';
+    }
   }
 
   async function logout() {
@@ -1182,6 +1225,10 @@
   function connect() {
     sb.channel('payments-changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'payments', filter: `user_id=eq.${uid}` }, handleRealtimeChange)
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'accounts', filter: `user_id=eq.${uid}` }, (payload) => {
+        account = Object.assign({}, account, payload.new);
+        renderPhone();
+      })
       .subscribe((status) => {
         if (status === 'SUBSCRIBED') {
           setConn(true);
