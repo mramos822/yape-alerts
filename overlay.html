@@ -291,8 +291,10 @@
     cardsById.delete(id);
   }
 
+  // Salida animada: la limpieza instantanea solo corresponde en showCard,
+  // donde una tarjeta nueva reemplaza a la anterior sin solaparse.
   function hideAll() {
-    stack.querySelectorAll('.superchat').forEach((el) => el.remove());
+    stack.querySelectorAll('.superchat:not(.exiting)').forEach((el) => removeCard(el));
     cardsById.clear();
   }
 
