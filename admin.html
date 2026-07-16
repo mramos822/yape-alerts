@@ -24,19 +24,19 @@
 <script src="https://cdn.jsdelivr.net/npm/twemoji@14.0.2/dist/twemoji.min.js"></script>
 <style>
   :root {
-    --purple: #6E2D8F;
-    --purple-bright: #8B34A8;
-    --purple-dark: #4E1E68;
-    --purple-50: #F6EEFB;
-    --purple-100: #EDDDF6;
-    --purple-200: #DBBEEC;
+    --accent: #3E63DD;
+    --accent-bright: #5B7FFF;
+    --accent-dark: #2C46A6;
+    --accent-50: #EEF1FD;
+    --accent-100: #DCE3FB;
+    --accent-200: #B7C4F5;
     --teal: #14C6A4;
     --teal-bright: #20E7B9;
     --teal-soft: #E1FAF3;
-    --ink: #2C1B36;
-    --ink-soft: #6B5A75;
-    --ink-mute: #9C8FA6;
-    --bg: #F5F1FA;
+    --ink: #171A1F;
+    --ink-soft: #5B6472;
+    --ink-mute: #8B93A0;
+    --bg: #F2F4F6;
     --card: #FFFFFF;
     --red: #E5484D;
     --red-soft: #FDECEC;
@@ -44,42 +44,46 @@
     --amber-soft: #FDF2DE;
     --green: #17B978;
     --green-soft: #E3F7EE;
-    --toast-bg: #2C1B36;
-    --shadow: 0 6px 20px rgba(78, 30, 104, .08);
-    --shadow-hover: 0 10px 28px rgba(78, 30, 104, .16);
+    --toast-bg: #171A1F;
+    --shadow: 0 6px 20px rgba(20, 30, 40, .08);
+    --shadow-hover: 0 10px 28px rgba(20, 30, 40, .16);
 
     /* Paleta por plataforma (secciones de Kick/YouTube/Yape): colores de
-       marca de cada una, no los genericos purpura/teal de la app. */
+       marca de cada una, independiente del acento generico de la app de
+       aca abajo (ese ya no es morado; Yape sigue siendo morado porque ese
+       es su color de marca real, no por herencia del tema viejo de la app). */
     --kick-green: #53FC18;
     --kick-green-dark: #33A50A;
     --yt-red: #FF0000;
     --yt-red-dark: #CC0000;
+    --yape: #6E2D8F;
+    --yape-bright: #8B34A8;
   }
 
   :root[data-theme="dark"] {
-    --purple: #B884D8;
-    --purple-bright: #CB97E8;
-    --purple-dark: #3A1650;
-    --purple-50: #271D33;
-    --purple-100: #362941;
-    --purple-200: #4B3A59;
+    --accent: #6E8CFF;
+    --accent-bright: #93AAFF;
+    --accent-dark: #2C46A6;
+    --accent-50: #131A2E;
+    --accent-100: #1B2540;
+    --accent-200: #253358;
     --teal: #20E7B9;
     --teal-bright: #2FF3C6;
     --teal-soft: rgba(32, 231, 185, .14);
-    --ink: #F1EAF7;
-    --ink-soft: #C3B4CF;
-    --ink-mute: #948699;
-    --bg: #161119;
-    --card: #221A2B;
+    --ink: #E7EBEF;
+    --ink-soft: #A6AFBB;
+    --ink-mute: #6E7681;
+    --bg: #0B0D10;
+    --card: #14171B;
     --red: #FF6B70;
     --red-soft: rgba(229, 72, 77, .16);
     --amber: #F5B54A;
     --amber-soft: rgba(240, 160, 32, .15);
     --green: #2ED88E;
     --green-soft: rgba(23, 185, 120, .16);
-    --toast-bg: #362941;
-    --shadow: 0 6px 20px rgba(0, 0, 0, .38);
-    --shadow-hover: 0 12px 30px rgba(0, 0, 0, .52);
+    --toast-bg: #14171B;
+    --shadow: 0 6px 20px rgba(0, 0, 0, .5);
+    --shadow-hover: 0 12px 30px rgba(0, 0, 0, .65);
   }
   :root[data-theme="dark"] .status-pending { color: #F5B54A; }
   :root[data-theme="dark"] .status-live { color: #2FF3C6; }
@@ -101,45 +105,33 @@
   }
 
   /* ---------- Header ---------- */
+  /* Barra siempre oscura, plana, sin brillo animado -- fija en oscuro sin
+     importar el tema claro/oscuro del resto del panel (mismo criterio que
+     Social Stream Ninja/Kickbot: la "chrome" queda oscura, el contenido de
+     abajo es el que cambia de tema). */
   .app-header {
     position: relative;
-    overflow: hidden;
-    background: linear-gradient(118deg, #5E2380 0%, #7A2C9C 48%, #A23A93 100%);
+    background: #0B0D10;
     color: #fff;
-    padding: 20px 26px;
+    padding: 18px 26px;
     display: flex;
     align-items: center;
     gap: 16px;
-    box-shadow: 0 8px 26px rgba(78, 30, 104, .28);
-  }
-  .app-header::after {
-    content: '';
-    position: absolute;
-    top: -60%;
-    left: -20%;
-    width: 45%;
-    height: 220%;
-    background: linear-gradient(90deg, transparent, rgba(255,255,255,.14), transparent);
-    transform: rotate(18deg);
-    animation: sheen 7s ease-in-out infinite;
-  }
-  @keyframes sheen {
-    0%, 100% { left: -30%; }
-    50% { left: 120%; }
+    border-bottom: 1px solid rgba(110, 140, 255, .28);
+    box-shadow: 0 8px 26px rgba(0, 0, 0, .35);
   }
 
   .logo-badge {
-    width: 54px;
-    height: 54px;
-    border-radius: 16px;
-    background: #fff;
+    width: 50px;
+    height: 50px;
+    border-radius: 14px;
+    background: #14171B;
+    border: 1px solid rgba(110, 140, 255, .3);
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 7px;
-    box-shadow: 0 6px 16px rgba(0,0,0,.18);
+    padding: 9px;
     flex-shrink: 0;
-    z-index: 1;
   }
   .logo-badge img { width: 100%; height: 100%; object-fit: contain; }
 
@@ -258,7 +250,7 @@
     opacity: .85;
     margin-top: 1px;
   }
-  .section-banner--yape { background: linear-gradient(120deg, var(--purple), var(--purple-bright)); }
+  .section-banner--yape { background: linear-gradient(120deg, var(--yape), var(--yape-bright)); }
   .section-banner--kick {
     background: linear-gradient(120deg, var(--kick-green-dark), var(--kick-green));
     color: #0B2100;
@@ -290,7 +282,7 @@
     box-shadow: var(--shadow);
     transition: transform .18s cubic-bezier(.34,1.56,.64,1), color .18s, box-shadow .18s;
   }
-  .tab-btn:hover { transform: translateY(-2px); color: var(--purple); }
+  .tab-btn:hover { transform: translateY(-2px); color: var(--accent); }
   .tab-btn.active { color: #fff; }
   .tab-btn[data-tab="pending"].active { background: linear-gradient(120deg, var(--amber), #E48A12); }
   .tab-btn[data-tab="approved"].active { background: linear-gradient(120deg, var(--teal), #10A98B); }
@@ -303,8 +295,8 @@
   .tab-btn[data-tab="youtube"] .dot { background: #FF3B30; }
   .tab-btn.active .dot { background: rgba(255,255,255,.9); }
   .tab-btn .count {
-    background: var(--purple-50);
-    color: var(--purple);
+    background: var(--accent-50);
+    color: var(--accent);
     border-radius: 999px;
     padding: 1px 9px;
     font-size: 12.5px;
@@ -319,9 +311,9 @@
 
   .toolbar { display: flex; gap: 8px; margin-left: auto; flex-wrap: wrap; }
   .icon-btn {
-    border: 2px solid var(--purple-100);
+    border: 2px solid var(--accent-100);
     background: var(--card);
-    color: var(--purple);
+    color: var(--accent);
     border-radius: 999px;
     padding: 9px 16px;
     font-family: inherit;
@@ -334,7 +326,7 @@
     box-shadow: var(--shadow);
     transition: transform .18s cubic-bezier(.34,1.56,.64,1), background .18s, border-color .18s;
   }
-  .icon-btn:hover { transform: translateY(-2px); background: var(--purple-50); border-color: var(--purple-200); }
+  .icon-btn:hover { transform: translateY(-2px); background: var(--accent-50); border-color: var(--accent-200); }
   .icon-btn.accent { background: linear-gradient(120deg, var(--teal), #10A98B); color: #fff; border-color: transparent; }
   .icon-btn.accent:hover { background: linear-gradient(120deg, #17D1AE, #12B394); }
   .icon-btn:disabled { opacity: .55; cursor: not-allowed; transform: none; }
@@ -348,9 +340,9 @@
     margin: 18px 2px 14px;
     font-size: 13.5px;
     font-weight: 700;
-    color: var(--purple);
-    background: var(--purple-50);
-    border: 1px dashed var(--purple-200);
+    color: var(--accent);
+    background: var(--accent-50);
+    border: 1px dashed var(--accent-200);
     border-radius: 12px;
     padding: 10px 14px;
     animation: hintIn .35s ease both;
@@ -379,7 +371,7 @@
   .card:hover { transform: translateY(-3px); box-shadow: var(--shadow-hover); }
   .card.is-pending { border-left-color: var(--amber); }
   .card.is-live { border-left-color: var(--teal); }
-  .card.is-done { border-left-color: var(--purple-200); opacity: .72; }
+  .card.is-done { border-left-color: var(--accent-200); opacity: .72; }
   .card.is-rejected { border-left-color: var(--red); opacity: .72; }
 
   .card.entering { animation: cardIn .45s cubic-bezier(.34,1.56,.64,1) both; }
@@ -407,7 +399,7 @@
     align-self: center;
     width: 46px; height: 46px;
     border-radius: 50%;
-    background: linear-gradient(135deg, var(--purple), var(--purple-bright));
+    background: linear-gradient(135deg, var(--accent), var(--accent-bright));
     color: #fff;
     display: flex; align-items: center; justify-content: center;
     font-size: 19px; font-weight: 900;
@@ -438,7 +430,7 @@
   .status-live { background: var(--teal-soft); color: #0E9A80; }
   .status-live::before { animation: livePulse 1.8s infinite; }
   .status-rejected { background: var(--red-soft); color: var(--red); }
-  .status-done { background: var(--purple-50); color: var(--purple); }
+  .status-done { background: var(--accent-50); color: var(--accent); }
 
   .card-message {
     grid-area: message;
@@ -447,7 +439,7 @@
     font-size: 16px;
     font-weight: 700;
     line-height: 1.4;
-    background: var(--purple-50);
+    background: var(--accent-50);
     border-radius: 4px 14px 14px 14px;
     padding: 9px 14px;
     margin-top: 6px;
@@ -459,7 +451,7 @@
     top: -6px; left: 0;
     border-width: 0 10px 8px 0;
     border-style: solid;
-    border-color: transparent var(--purple-50) transparent transparent;
+    border-color: transparent var(--accent-50) transparent transparent;
   }
   .card-message em { color: var(--ink-mute); font-weight: 700; font-style: normal; opacity: .8; }
 
@@ -474,7 +466,7 @@
     padding-right: 4px;
   }
   .card-amount .cur { font-size: 12px; font-weight: 800; color: var(--ink-mute); }
-  .card-amount .val { font-size: 24px; font-weight: 900; color: var(--purple); letter-spacing: -.02em; }
+  .card-amount .val { font-size: 24px; font-weight: 900; color: var(--accent); letter-spacing: -.02em; }
   .card-amount .top {
     margin-top: 5px;
     font-size: 10.5px;
@@ -515,12 +507,12 @@
 
   .btn-approve { background: linear-gradient(120deg, var(--green), #12A268); color: #fff; box-shadow: 0 4px 12px rgba(23,185,120,.32); }
   .btn-approve:hover { filter: brightness(1.06); }
-  .btn-retry { background: linear-gradient(120deg, var(--purple), var(--purple-bright)); color: #fff; box-shadow: 0 4px 12px rgba(110,45,143,.28); }
+  .btn-retry { background: linear-gradient(120deg, var(--accent), var(--accent-bright)); color: #fff; box-shadow: 0 4px 12px rgba(110,45,143,.28); }
   .btn-retry:hover { filter: brightness(1.08); }
   .btn-reject { background: var(--card); border-color: var(--red-soft); color: var(--red); }
   .btn-reject:hover { background: var(--red); border-color: var(--red); color: #fff; }
-  .btn-dismiss { background: var(--card); border-color: var(--purple-100); color: var(--purple); }
-  .btn-dismiss:hover { background: var(--purple); border-color: var(--purple); color: #fff; }
+  .btn-dismiss { background: var(--card); border-color: var(--accent-100); color: var(--accent); }
+  .btn-dismiss:hover { background: var(--accent); border-color: var(--accent); color: #fff; }
   .btn-trash {
     background: transparent;
     border-color: transparent;
@@ -544,12 +536,12 @@
     display: inline-flex;
     width: 70px; height: 70px;
     align-items: center; justify-content: center;
-    background: var(--purple-50);
+    background: var(--accent-50);
     border-radius: 50%;
     margin-bottom: 14px;
     animation: float 3s ease-in-out infinite;
   }
-  .empty .big svg { width: 34px; height: 34px; color: var(--purple-200); }
+  .empty .big svg { width: 34px; height: 34px; color: var(--accent-200); }
   @keyframes float { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-7px); } }
   .empty strong { display: block; color: var(--ink); font-size: 16px; font-weight: 900; margin-bottom: 4px; }
 
@@ -578,7 +570,7 @@
     border-radius: 50%;
     object-fit: cover;
     flex-shrink: 0;
-    background: var(--purple-50);
+    background: var(--accent-50);
   }
   .kick-channel-info { min-width: 0; flex: 1; }
   .kick-channel-name {
@@ -646,7 +638,7 @@
   }
   .kick-pause-btn svg { width: 13px; height: 13px; }
   .kick-pause-btn:hover { color: var(--ink); }
-  .kick-pause-btn.paused { color: #fff; background: var(--purple); }
+  .kick-pause-btn.paused { color: #fff; background: var(--accent); }
   .yt-ext-status {
     display: inline-flex;
     align-items: center;
@@ -690,8 +682,8 @@
     margin: 0 -6px;
     transition: background .12s;
   }
-  .kick-msg:hover { background: var(--purple-50); }
-  .kick-msg:active { background: var(--purple-100); }
+  .kick-msg:hover { background: var(--accent-50); }
+  .kick-msg:active { background: var(--accent-100); }
   .kick-msg.kick-msg-active { background: var(--teal-soft); box-shadow: inset 3px 0 0 var(--teal); }
   .kick-msg.kick-msg-active:hover { background: var(--teal-soft); }
   /* Un superchat no es un mensaje mas: se destaca con el mismo dorado que
@@ -711,7 +703,7 @@
     gap: 3px;
     vertical-align: middle;
   }
-  .kick-msg .kick-user { font-weight: 900; color: var(--purple); }
+  .kick-msg .kick-user { font-weight: 900; color: var(--accent); }
   .kick-chat-empty { color: var(--ink-mute); font-size: 13.5px; font-weight: 700; padding: 6px 2px; }
   /* Imagen real de Twemoji para banderas/emoji (Windows no las dibuja bien
      con la fuente del sistema, ver script de twemoji en el head). */
@@ -807,13 +799,13 @@
     font-weight: 700;
     color: var(--ink);
     background: var(--bg);
-    border: 2px solid var(--purple-100);
+    border: 2px solid var(--accent-100);
     border-radius: 12px;
     padding: 11px 13px;
     outline: none;
     transition: border-color .18s;
   }
-  .auth-field input:focus { border-color: var(--purple); }
+  .auth-field input:focus { border-color: var(--accent); }
   .auth-error {
     display: none;
     background: var(--red-soft);
@@ -825,13 +817,13 @@
     margin-bottom: 12px;
   }
   .auth-forgot { text-align: right; margin: -6px 0 14px; }
-  .auth-forgot a { font-size: 12.5px; font-weight: 800; color: var(--purple); cursor: pointer; text-decoration: none; }
+  .auth-forgot a { font-size: 12.5px; font-weight: 800; color: var(--accent); cursor: pointer; text-decoration: none; }
   .auth-forgot a:hover { text-decoration: underline; }
   .auth-submit {
     width: 100%;
     border: none;
     border-radius: 13px;
-    background: linear-gradient(120deg, var(--purple), var(--purple-bright));
+    background: linear-gradient(120deg, var(--accent), var(--accent-bright));
     color: #fff;
     font-family: inherit;
     font-size: 15px;
@@ -843,7 +835,7 @@
   .auth-submit:hover { transform: translateY(-2px); filter: brightness(1.08); }
   .auth-submit:disabled { opacity: .6; cursor: wait; transform: none; }
   .auth-switch { text-align: center; margin: 14px 0 0; font-size: 13.5px; color: var(--ink-soft); }
-  .auth-switch a { color: var(--purple); font-weight: 900; cursor: pointer; text-decoration: none; }
+  .auth-switch a { color: var(--accent); font-weight: 900; cursor: pointer; text-decoration: none; }
   .auth-switch a:hover { text-decoration: underline; }
 
   /* ---------- Modal "Mis enlaces" ---------- */
@@ -871,13 +863,13 @@
   .modal h3 { margin: 0 0 4px; font-size: 18px; font-weight: 900; color: var(--ink); }
   .modal .modal-sub { margin: 0 0 16px; font-size: 13.5px; color: var(--ink-soft); }
   .link-block { margin-bottom: 16px; }
-  .link-block .lbl { font-size: 12.5px; font-weight: 900; color: var(--purple); margin-bottom: 5px; }
+  .link-block .lbl { font-size: 12.5px; font-weight: 900; color: var(--accent); margin-bottom: 5px; }
   .link-block .hint { font-size: 12.5px; color: var(--ink-mute); margin-top: 5px; }
   .link-row { display: flex; gap: 8px; }
   .link-row code {
     flex: 1;
-    background: var(--purple-50);
-    border: 1px dashed var(--purple-200);
+    background: var(--accent-50);
+    border: 1px dashed var(--accent-200);
     border-radius: 10px;
     padding: 10px 12px;
     font-size: 12.5px;
@@ -888,8 +880,8 @@
   .link-row input {
     flex: 1;
     font-family: inherit;
-    background: var(--purple-50);
-    border: 1px dashed var(--purple-200);
+    background: var(--accent-50);
+    border: 1px dashed var(--accent-200);
     border-radius: 10px;
     padding: 10px 12px;
     font-size: 13px;
@@ -897,12 +889,12 @@
     color: var(--ink);
     outline: none;
   }
-  .link-row input:focus { border-style: solid; border-color: var(--purple); }
+  .link-row input:focus { border-style: solid; border-color: var(--accent); }
   .link-row textarea {
     flex: 1;
     font-family: inherit;
-    background: var(--purple-50);
-    border: 1px dashed var(--purple-200);
+    background: var(--accent-50);
+    border: 1px dashed var(--accent-200);
     border-radius: 10px;
     padding: 10px 12px;
     font-size: 12.5px;
@@ -911,13 +903,13 @@
     outline: none;
     resize: vertical;
   }
-  .link-row textarea:focus { border-style: solid; border-color: var(--purple); }
+  .link-row textarea:focus { border-style: solid; border-color: var(--accent); }
   #youtube-keys-save { margin-top: 8px; }
   .link-row button {
     flex-shrink: 0;
     border: none;
     border-radius: 10px;
-    background: var(--purple);
+    background: var(--accent);
     color: #fff;
     font-family: inherit;
     font-size: 13px;
@@ -930,9 +922,9 @@
   .modal-close {
     width: 100%;
     margin-top: 4px;
-    border: 2px solid var(--purple-100);
+    border: 2px solid var(--accent-100);
     background: var(--card);
-    color: var(--purple);
+    color: var(--accent);
     border-radius: 12px;
     font-family: inherit;
     font-size: 14px;
@@ -940,7 +932,7 @@
     padding: 11px;
     cursor: pointer;
   }
-  .modal-close:hover { background: var(--purple-50); }
+  .modal-close:hover { background: var(--accent-50); }
 
   @media (max-width: 680px) {
     .app-header { padding: 16px 18px; }
@@ -962,7 +954,7 @@
 </head>
 <body class="locked">
   <header class="app-header">
-    <div class="logo-badge"><img src="logo/logo.png" alt="Yape"></div>
+    <div class="logo-badge"><img src="logo/mark.svg" alt="PlayChat"></div>
     <div class="header-text">
       <h1>PlayChat</h1>
       <p class="subtitle">Aprueba tus yapes, superchats y chat en vivo para que salgan en tu stream</p>
