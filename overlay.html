@@ -229,6 +229,11 @@
   // pago activo de esta cuenta ahora mismo. Se llama al conectar, cada vez
   // que la base avisa un cambio, y de fondo cada tanto por si algun aviso se pierde.
   async function syncCurrent() {
+    // Mientras haya un highlight de Kick al aire, un yape que sigue
+    // "on_overlay" (no fue descartado a mano en el panel) no debe taparlo;
+    // se vuelve a chequear solo cuando el highlight se suelta (ver
+    // handleKickBroadcast) asi no queda esperando el proximo poll de 30s.
+    if (currentSource === 'kick') return;
     const { data, error } = await sb.rpc('overlay_current', { p_key: OVERLAY_KEY });
     if (error) { console.error(error); return; }
     if (data) {
@@ -239,7 +244,7 @@
       if (shown && shown._sig === sig) return;
       showCard(data, sig);
       currentSource = 'yape';
-    } else if (currentSource !== 'kick') {
+    } else {
       hideAll();
       currentSource = null;
     }
@@ -247,7 +252,11 @@
 
   function handleKickBroadcast(payload) {
     if (!payload || payload.clear) {
-      if (currentSource === 'kick') { hideAll(); currentSource = null; }
+      if (currentSource === 'kick') {
+        hideAll();
+        currentSource = null;
+        syncCurrent();
+      }
       return;
     }
     showCard({ id: 'kick-live', name: payload.name, content: payload.content, badges: payload.badges, avatar: payload.avatar, source: 'kick' }, JSON.stringify(payload));
@@ -300,6 +309,11 @@
     sb.channel('overlay-' + OVERLAY_KEY, { config: { private: true } })
       .on('broadcast', { event: 'sync' }, () => { syncCurrent(); })
       .on('broadcast', { event: 'kick-msg' }, ({ payload }) => handleKickBroadcast(payload))
+      .on('broadcast', { event: 'kick-avatar-preload' }, ({ payload }) => {
+        // Solo calienta la cache de imagenes del navegador (OBS no comparte
+        // cache con la pestana del panel): no se muestra nada con esto.
+        if (payload && payload.avatar) new Image().src = payload.avatar;
+      })
       .subscribe((status) => {
         if (status === 'SUBSCRIBED') syncCurrent();
       });

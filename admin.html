@@ -1575,25 +1575,39 @@
   }
 
   // El mensaje del chat no trae foto de perfil (solo username): se resuelve
-  // aparte por su canal (kick.com/api/v2/channels/<slug>, campo profile_pic)
-  // solo cuando se resalta a alguien, no para cada mensaje que pasa por el
-  // chat. Cache simple para no repetir el pedido con la misma persona.
+  // aparte por su canal (kick.com/api/v2/channels/<slug>, campo profile_pic).
+  // Se precarga en cuanto el mensaje aparece en el chat (ver addKickMessage),
+  // no recien al clickear, para que resaltar a alguien sea instantaneo la
+  // mayoria de las veces. kickAvatarCache guarda el resultado ya resuelto
+  // (para lectura sincronica); kickAvatarPending evita pedir dos veces lo
+  // mismo si llegan varios mensajes de la misma persona antes de que responda.
   const kickAvatarCache = new Map();
-  async function resolveKickAvatar(slug) {
-    if (!slug) return null;
-    if (kickAvatarCache.has(slug)) return kickAvatarCache.get(slug);
-    let url = null;
-    try {
-      const res = await fetch(`https://kick.com/api/v2/channels/${encodeURIComponent(slug)}`);
-      if (res.ok) {
-        const data = await res.json();
-        url = data?.profile_pic || data?.user?.profile_pic || null;
-      }
-    } catch (err) {
-      console.error(err);
-    }
-    kickAvatarCache.set(slug, url);
-    return url;
+  const kickAvatarPending = new Map();
+  function resolveKickAvatar(slug) {
+    if (!slug) return Promise.resolve(null);
+    if (kickAvatarCache.has(slug)) return Promise.resolve(kickAvatarCache.get(slug));
+    if (kickAvatarPending.has(slug)) return kickAvatarPending.get(slug);
+    const p = fetch(`https://kick.com/api/v2/channels/${encodeURIComponent(slug)}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => data?.profile_pic || data?.user?.profile_pic || null)
+      .catch((err) => { console.error(err); return null; })
+      .then((url) => {
+        kickAvatarCache.set(slug, url);
+        kickAvatarPending.delete(slug);
+        // El overlay corre en su propio browser source (OBS) sin la cache
+        // de esta pestana: le avisamos la URL apenas se conoce para que
+        // baje la imagen en segundo plano, antes de que alguien la resalte.
+        if (url) preloadKickAvatarOnOverlay(url);
+        return url;
+      });
+    kickAvatarPending.set(slug, p);
+    return p;
+  }
+
+  function preloadKickAvatarOnOverlay(url) {
+    const ch = ensureKickOverlayChannel();
+    if (!ch) return;
+    ch.send({ type: 'broadcast', event: 'kick-avatar-preload', payload: { avatar: url } });
   }
 
   async function toggleKickHighlight(payload, el) {
@@ -1648,6 +1662,9 @@
     log.appendChild(div);
     while (log.children.length > KICK_LOG_MAX) log.removeChild(log.firstChild);
     log.scrollTop = log.scrollHeight;
+    // Precarga la foto de perfil apenas se ve el mensaje, no recien al
+    // clickear, para que resaltarlo salga instantaneo la mayoria de las veces.
+    resolveKickAvatar(payload.sender?.slug || payload.sender?.username);
   }
 
   function connectKickChat(chatroomId) {
