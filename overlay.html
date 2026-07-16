@@ -420,7 +420,13 @@
     // comparten source='youtube', pero se pintan distinto: el highlight
     // trae `content` (aunque sea texto vacio) y el superchat no.
     const isChatHighlight = (isKick || isYoutube) && payment.content !== undefined;
-    const nameColor = isKick ? '#FFA606' : isYoutube ? '#FF3B30' : tierColor(payment.amount);
+    // El highlight de un mensaje de chat de YouTube tiene su color propio
+    // (#03E7C0); un superchat ya aprobado sigue la misma regla de color por
+    // monto que un yape (tierColor), no un color fijo.
+    const nameColor = isKick ? '#FFA606'
+      : (isYoutube && isChatHighlight) ? '#03E7C0'
+      : isYoutube ? tierColor((String(payment.amount || '').match(/[\d.]+/) || [0])[0])
+      : tierColor(payment.amount);
     const messageColor = isChatHighlight ? '#222222' : nameColor;
     const el = document.createElement('div');
     el.className = 'superchat';
@@ -445,7 +451,7 @@
     const donation = isChatHighlight
       ? ''
       : isYoutube
-        ? `<div class="donation"><div class="donation-title">SUPERCHAT</div><div class="donation-subtitle">${escapeHtml(payment.amount || '')}</div></div>`
+        ? `<div class="donation"><div class="donation-title">DONATION</div><div class="donation-subtitle">${escapeHtml(payment.amount || '')}</div></div>`
         : `<div class="donation"><div class="donation-title">YAPE</div><div class="donation-subtitle">S/. ${payment.amount || '0.00'}</div></div>`;
     const nameLine = isChatHighlight
       ? `${isKick ? renderKickBadges(payment.badges) : renderYtBadges(payment.badges)}${escapeHtml(name)}`
