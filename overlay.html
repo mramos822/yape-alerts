@@ -322,6 +322,15 @@
   const YT_BADGE_LABEL = { owner: 'STREAMER', moderator: 'MOD', member: 'MIEMBRO', verified: '✓' };
   const YT_BADGE_COLOR = { owner: '#E5484D', moderator: '#14C6A4', member: '#8B34A8', verified: '#20E7B9' };
 
+  // El panel solo manda aca el icono real de un badge cuando es una URL de
+  // imagen liviana (ej. el badge de miembro elegido por el canal): los
+  // iconos pesados (mask-image de mod/verificado) se filtran del lado del
+  // panel para no romper el broadcast, asi que esto nunca recibe esos.
+  function renderYtBadgeImages(badgeImages) {
+    if (!Array.isArray(badgeImages) || !badgeImages.length) return '';
+    return badgeImages.map((b) => `<img class="kick-badge-icon" src="${escapeHtml(b.src)}" alt="${escapeHtml(b.alt || '')}" title="${escapeHtml(b.alt || '')}">`).join('');
+  }
+
   function renderYtBadges(badges) {
     if (!Array.isArray(badges) || !badges.length) return '';
     return badges.map((b) => {
@@ -329,6 +338,15 @@
       const color = YT_BADGE_COLOR[b] || '#6E2D8F';
       return `<span class="kick-badge-icon" style="width:auto;padding:0 4px;background:${color};color:#fff;font-size:8px;font-weight:800;display:inline-flex;align-items:center;justify-content:center;border-radius:4px;" title="${escapeHtml(label)}">${escapeHtml(label)}</span>`;
     }).join('');
+  }
+
+  // Combina el icono real (si vino) con los chips de texto: cuando hay
+  // imagen real de miembro, no se duplica con el chip de texto de miembro.
+  function renderYtBadgesCombined(badges, badgeImages) {
+    const hasMemberImage = Array.isArray(badgeImages) && badgeImages.length > 0;
+    const imagesHtml = renderYtBadgeImages(badgeImages);
+    const textBadges = (badges || []).filter((b) => !(b === 'member' && hasMemberImage));
+    return imagesHtml + renderYtBadges(textBadges);
   }
 
   // El contenido trae los emotes inline como "[emote:ID:Nombre]"; se
@@ -454,7 +472,7 @@
         ? `<div class="donation"><div class="donation-title">DONATION</div><div class="donation-subtitle">${escapeHtml(payment.amount || '')}</div></div>`
         : `<div class="donation"><div class="donation-title">YAPE</div><div class="donation-subtitle">S/. ${payment.amount || '0.00'}</div></div>`;
     const nameLine = isChatHighlight
-      ? `${isKick ? renderKickBadges(payment.badges) : renderYtBadges(payment.badges)}${escapeHtml(name)}`
+      ? `${isKick ? renderKickBadges(payment.badges) : renderYtBadgesCombined(payment.badges, payment.badgeImages)}${escapeHtml(name)}`
       : escapeHtml(name);
     const textLine = isChatHighlight
       ? ((payment.content)

@@ -2687,12 +2687,15 @@
     ytHighlightedEl = el;
     ytHighlightedMsgId = msgId;
     const author = item.authorDetails || {};
-    // badgeImages NO se manda: algunos iconos de YouTube (mod/verificado)
-    // vienen como data:image/svg+xml pesado, y el broadcast en tiempo real
-    // de Supabase tiene un limite de tamaño — mandarlos hacia rompia el
-    // mensaje entero en silencio. El overlay se queda con el chip de texto
-    // (liviano y confiable); los iconos reales quedan solo en el panel,
-    // donde no hay limite porque todo es local.
+    // Los iconos de mod/verificado (mask-image, ver browser-extension/) son
+    // un data:image/svg+xml pesado que rompia el broadcast entero en
+    // silencio (el canal en tiempo real de Supabase tiene limite de
+    // tamaño). El badge de miembro en cambio suele ser una URL de imagen
+    // normal y liviana (el icono que elige cada canal), asi que se manda
+    // igual: solo se filtran los pesados (mask/sprite), no todos.
+    const safeBadgeImages = (author.badgeImages || []).filter(
+      (b) => b.src && !b.isMask && !b.bgPosition && !b.src.startsWith('data:')
+    );
     await ch.send({
       type: 'broadcast',
       event: 'yt-msg',
@@ -2700,6 +2703,7 @@
         name: author.displayName || 'Alguien',
         content: (item.snippet && item.snippet.displayMessage) || '',
         badges: ytBadgesFor(author),
+        badgeImages: safeBadgeImages,
         avatar: author.profileImageUrl || '',
       },
     });
