@@ -2358,11 +2358,12 @@
       (data.items || []).forEach(handleYoutubeMessage);
       if (ytExtensionActive) return; // se activo mientras esperabamos la respuesta
       setYoutubeStatus('Chat de YouTube en vivo', true);
-      // Se ignora el intervalo que sugiere YouTube (suele pedir ~5s): con 4
-      // keys de cuota de sobra, se prioriza que se sienta lo mas en vivo
-      // posible. Si YouTube pide un intervalo mas chico todavia (chat muy
-      // activo), se respeta ese en vez de forzar el techo de 2s.
-      const interval = Math.min(data.pollingIntervalMillis || 2000, 2000);
+      // pollingIntervalMillis NO es una sugerencia: es el minimo que YouTube
+      // exige entre pedidos. Pollear mas rapido (como se hacia antes,
+      // forzando un techo de 2s) tira 403 "The request was sent too soon
+      // after the previous one" y quema quota en pedidos que ni siquiera se
+      // contestan.
+      const interval = data.pollingIntervalMillis || 2000;
       ytPollTimer = setTimeout(pollYoutubeChat, interval);
     } catch (err) {
       console.error(err);
