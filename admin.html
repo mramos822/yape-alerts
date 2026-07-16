@@ -234,10 +234,12 @@
   .tab-btn[data-tab="pending"].active { background: linear-gradient(120deg, var(--amber), #E48A12); }
   .tab-btn[data-tab="approved"].active { background: linear-gradient(120deg, var(--teal), #10A98B); }
   .tab-btn[data-tab="rejected"].active { background: linear-gradient(120deg, #EF5A5F, #D33A40); }
+  .tab-btn[data-tab="youtube"].active { background: linear-gradient(120deg, #FF3B30, #CC0000); }
   .tab-btn .dot { width: 8px; height: 8px; border-radius: 50%; }
   .tab-btn[data-tab="pending"] .dot { background: var(--amber); }
   .tab-btn[data-tab="approved"] .dot { background: var(--teal); }
   .tab-btn[data-tab="rejected"] .dot { background: var(--red); }
+  .tab-btn[data-tab="youtube"] .dot { background: #FF3B30; }
   .tab-btn.active .dot { background: rgba(255,255,255,.9); }
   .tab-btn .count {
     background: var(--purple-50);
@@ -350,7 +352,9 @@
     font-size: 19px; font-weight: 900;
     box-shadow: 0 4px 10px rgba(110,45,143,.28);
     position: relative;
+    overflow: hidden;
   }
+  .card-avatar img { width: 100%; height: 100%; object-fit: cover; }
   .card.is-rejected .card-avatar,
   .card.is-done .card-avatar { background: linear-gradient(135deg, #B4A6BE, #9C8FA6); box-shadow: none; }
 
@@ -490,6 +494,14 @@
 
   /* ---------- Chat de Kick ---------- */
   #kick-chat-section { margin-top: 26px; }
+  #youtube-chat-section { margin-top: 26px; }
+  .youtube-connect {
+    margin-top: 26px;
+    background: var(--card);
+    border-radius: 18px;
+    box-shadow: var(--shadow);
+    padding: 16px;
+  }
   .kick-channel-head {
     display: flex;
     align-items: center;
@@ -779,6 +791,21 @@
     outline: none;
   }
   .link-row input:focus { border-style: solid; border-color: var(--purple); }
+  .link-row textarea {
+    flex: 1;
+    font-family: inherit;
+    background: var(--purple-50);
+    border: 1px dashed var(--purple-200);
+    border-radius: 10px;
+    padding: 10px 12px;
+    font-size: 12.5px;
+    font-weight: 700;
+    color: var(--ink);
+    outline: none;
+    resize: vertical;
+  }
+  .link-row textarea:focus { border-style: solid; border-color: var(--purple); }
+  #youtube-keys-save { margin-top: 8px; }
   .link-row button {
     flex-shrink: 0;
     border: none;
@@ -903,6 +930,14 @@
         </div>
         <div class="hint" id="kick-username-hint">Escribe tu usuario de Kick (el que aparece en kick.com/tu-usuario) para ver el chat en vivo abajo del panel.</div>
       </div>
+      <div class="link-block">
+        <div class="lbl">API keys de YouTube (opcional)</div>
+        <div class="link-row">
+          <textarea id="youtube-keys-input" rows="3" placeholder="Una API key de YouTube Data API v3 por línea (podés pegar varias)"></textarea>
+        </div>
+        <button id="youtube-keys-save" onclick="saveYoutubeKeys()">Guardar</button>
+        <div class="hint" id="youtube-keys-hint">Pega ahí una o más API keys de Google Cloud (YouTube Data API v3). Si pegás varias, el panel rota automáticamente a la siguiente si una se queda sin cuota diaria.</div>
+      </div>
       <button class="modal-close" onclick="closeLinks()">Cerrar</button>
     </div>
   </div>
@@ -917,6 +952,9 @@
       </button>
       <button class="tab-btn" data-tab="rejected" onclick="setTab('rejected')">
         <span class="dot"></span> Rechazados <span class="count" id="count-rejected">0</span>
+      </button>
+      <button class="tab-btn" data-tab="youtube" onclick="setTab('youtube')">
+        <span class="dot"></span> Superchats <span class="count" id="count-youtube">0</span>
       </button>
       <div class="toolbar">
         <button class="icon-btn accent" id="test-samples-btn" onclick="sendTestSamples()">
@@ -966,6 +1004,35 @@
         </button>
       </div>
       <div id="kick-chat-log" class="kick-chat-log"></div>
+    </div>
+
+    <div id="youtube-chat-section" style="display:none">
+      <div class="kick-chat-head">
+        <span class="kick-dot" id="youtube-chat-dot"></span>
+        <span id="youtube-chat-status">Chat de YouTube</span>
+        <button id="youtube-pause-btn" class="kick-pause-btn" onclick="toggleYoutubePause()" title="Pausar el chat">
+          <svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>
+          Pausar
+        </button>
+        <button id="youtube-clear-btn" class="kick-pause-btn" onclick="clearYoutubeChat()" title="Borrar el chat">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg>
+          Borrar chat
+        </button>
+        <button id="youtube-disconnect-btn" class="kick-pause-btn" onclick="disconnectYoutubeChat(true)" title="Conectar otro directo">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+          Desconectar
+        </button>
+      </div>
+      <div id="youtube-chat-log" class="kick-chat-log"></div>
+    </div>
+
+    <div id="youtube-connect-section" class="youtube-connect link-block" style="display:none">
+      <div class="lbl">Chat en vivo de YouTube</div>
+      <div class="link-row">
+        <input id="youtube-video-input" type="text" placeholder="Link o ID del video en vivo de YouTube">
+        <button onclick="connectYoutubeChat()">Conectar</button>
+      </div>
+      <div class="hint" id="youtube-connect-hint">Pega el link de tu directo de YouTube (o el ID del video) para ver el chat en vivo acá abajo.</div>
     </div>
   </div>
 
@@ -1110,6 +1177,7 @@
     setInterval(renderPhones, 30000); // el "hace X min" envejece solo
     connect();
     if (account && account.kick_chatroom_id) connectKickChat(account.kick_chatroom_id);
+    updateYoutubeConnectVisibility();
   }
 
   // ---------- Estado de los celulares (latido de la app Android) ----------
@@ -1207,6 +1275,7 @@
     document.getElementById('link-overlay').textContent = overlayUrl();
     document.getElementById('link-code').textContent = account.ingest_code;
     document.getElementById('kick-username-input').value = account.kick_username || '';
+    document.getElementById('youtube-keys-input').value = (account.youtube_api_keys || []).join('\n');
     document.getElementById('links-modal').classList.add('open');
   }
   window.openLinks = openLinks;
@@ -1262,6 +1331,27 @@
   }
   window.saveKickChatroom = saveKickChatroom;
 
+  // Muestra el formulario para pegar el link del directo solo si la cuenta
+  // ya tiene al menos una API key de YouTube guardada.
+  function updateYoutubeConnectVisibility() {
+    const hasKeys = !!(account && account.youtube_api_keys && account.youtube_api_keys.length);
+    document.getElementById('youtube-connect-section').style.display = hasKeys ? '' : 'none';
+  }
+
+  async function saveYoutubeKeys() {
+    const keys = document.getElementById('youtube-keys-input').value
+      .split('\n')
+      .map((k) => k.trim())
+      .filter(Boolean);
+    const { error } = await sb.from('accounts').update({ youtube_api_keys: keys }).eq('user_id', uid);
+    if (error) { toast('No se pudo guardar'); console.error(error); return; }
+    account.youtube_api_keys = keys;
+    toast(keys.length ? 'API keys de YouTube guardadas' : 'API keys de YouTube borradas');
+    updateYoutubeConnectVisibility();
+    if (!keys.length) disconnectYoutubeChat(true);
+  }
+  window.saveYoutubeKeys = saveYoutubeKeys;
+
   function closeLinks() {
     document.getElementById('links-modal').classList.remove('open');
   }
@@ -1287,6 +1377,7 @@
       amount: row.amount,
       message: row.message,
       raw: row.raw,
+      source: row.source,
       status: row.status,
       everDismissed: row.ever_dismissed,
       onOverlay: row.on_overlay,
@@ -1302,7 +1393,7 @@
   const paymentsById = new Map();
   let currentTab = 'pending';
   let toastTimer = null;
-  const prevCounts = { pending: null, approved: null, rejected: null };
+  const prevCounts = { pending: null, approved: null, rejected: null, youtube: null };
 
   const ICON = {
     check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>',
@@ -1318,6 +1409,7 @@
     pending: 'Estos pagos están esperando tu decisión. Pulsa <b>Aprobar</b> para mostrarlo en el overlay o <b>Rechazar</b> para descartarlo.',
     approved: 'Pagos que ya mostraste en el overlay. Puedes volver a mostrarlos cuando quieras.',
     rejected: 'Pagos que rechazaste. Se quedan aquí siempre, pero igual puedes mostrarlos en el overlay sin que se muevan.',
+    youtube: 'Superchats de YouTube, separados de los Yapes. Pulsa <b>Aprobar</b> para mostrarlo en el overlay o <b>Rechazar</b> para descartarlo.',
   };
   const HINT_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 16v-4M12 8h.01"/></svg>';
 
@@ -1353,6 +1445,16 @@
     return `${p.amount || '0.00'}`;
   }
 
+  // Los superchats guardan el avatar del autor de YouTube en `raw` (como
+  // JSON), ya que no hay una columna dedicada para eso en payments.
+  function parseYoutubeRaw(raw) {
+    try {
+      return JSON.parse(raw || '{}');
+    } catch {
+      return {};
+    }
+  }
+
   function timeText(p) {
     if (!p.receivedAt) return '';
     const d = new Date(p.receivedAt);
@@ -1360,6 +1462,10 @@
   }
 
   function tabOf(p) {
+    // Los superchats de YouTube tienen su propia pestaña, separada de las
+    // 3 de Yapes, sin importar el status (por eso va primero: "Vaciar
+    // historial" y las demas funciones de Yape ya los excluyen solas).
+    if (p.source === 'youtube') return 'youtube';
     // Una vez que un pago pasa por "Aprobados" (fue quitado del overlay al
     // menos una vez), se queda ahi para siempre, sin importar si se vuelve
     // a aprobar/quitar despues.
@@ -1436,11 +1542,18 @@
     }
 
     const st = statusInfo(p);
+    const isYoutube = p.source === 'youtube';
     const initial = (p.name || '?').trim().charAt(0).toUpperCase();
-    const amount = parseFloat(p.amount) || 0;
-    const topBadge = amount >= 50 ? '<span class="top">★ TOP YAPE</span>' : '';
+    const ytMeta = isYoutube ? parseYoutubeRaw(p.raw) : null;
+    const avatarHtml = ytMeta && ytMeta.avatar
+      ? `<img src="${escapeHtml(ytMeta.avatar)}" alt="${escapeHtml(p.name || '')}">`
+      : initial;
+    const topBadge = (!isYoutube && (parseFloat(p.amount) || 0) >= 50) ? '<span class="top">★ TOP YAPE</span>' : '';
+    const amountHtml = isYoutube
+      ? `<span class="val">${escapeHtml(amountVal(p))}</span>`
+      : `<span class="cur">S/</span><span class="val">${amountVal(p)}</span>`;
     card.innerHTML = `
-      <div class="card-avatar">${initial}</div>
+      <div class="card-avatar">${avatarHtml}</div>
       <div class="card-main">
         <span class="card-name">${escapeHtml(p.name || 'Anónimo')}</span>
         <span class="card-status status-${st.cls}">${st.text}</span>
@@ -1448,7 +1561,7 @@
       </div>
       <div class="card-message">${p.message ? escapeHtml(p.message) : '<em>Sin mensaje</em>'}</div>
       <div class="card-amount">
-        <span class="cur">S/</span><span class="val">${amountVal(p)}</span>${topBadge}
+        ${amountHtml}${topBadge}
       </div>
       <div class="card-actions">${actionsFor(p)}</div>
     `;
@@ -1462,9 +1575,9 @@
   }
 
   function updateCounts() {
-    const counts = { pending: 0, approved: 0, rejected: 0 };
+    const counts = { pending: 0, approved: 0, rejected: 0, youtube: 0 };
     paymentsById.forEach((p) => { counts[tabOf(p)]++; });
-    for (const key of ['pending', 'approved', 'rejected']) {
+    for (const key of ['pending', 'approved', 'rejected', 'youtube']) {
       const el = document.getElementById('count-' + key);
       el.textContent = counts[key];
       if (prevCounts[key] !== null && prevCounts[key] !== counts[key]) {
@@ -2012,6 +2125,277 @@
     kickLogEntries = [];
     kickCurrentChatroomId = null;
   }
+
+  // ---------- Chat de YouTube (Data API v3, por polling con rotacion de keys) ----------
+  // A diferencia de Kick (WebSocket gratis sin cuota), YouTube solo permite
+  // leer el chat en vivo por la Data API oficial, que gasta cuota diaria por
+  // PROYECTO de Google Cloud (no por key). Por eso el streamer puede guardar
+  // varias keys (una por proyecto, ver "Mis enlaces"): si una se queda sin
+  // cuota a mitad de directo, se rota sola a la siguiente.
+  const YOUTUBE_API_BASE = 'https://www.googleapis.com/youtube/v3';
+  let ytKeyIndex = 0;
+  let ytLiveChatId = null;
+  let ytNextPageToken = null;
+  let ytPollTimer = null;
+  let ytPaused = false;
+  let ytPausedQueue = [];
+  let ytHighlightedEl = null;
+  let ytHighlightedMsgId = null;
+  let ytOverlayChannel = null;
+
+  function ensureYtOverlayChannel() {
+    if (ytOverlayChannel || !account) return ytOverlayChannel;
+    ytOverlayChannel = sb.channel('overlay-' + account.overlay_key, { config: { private: true } });
+    ytOverlayChannel.subscribe();
+    return ytOverlayChannel;
+  }
+
+  // Extrae el ID del video de un link pegado (watch?v=, youtu.be/, /live/,
+  // /shorts/) o lo toma tal cual si ya parece un ID de 11 caracteres.
+  function parseYoutubeVideoId(input) {
+    const s = (input || '').trim();
+    const m = s.match(/(?:youtube\.com\/watch\?v=|youtube\.com\/live\/|youtu\.be\/|youtube\.com\/shorts\/)([\w-]{11})/);
+    if (m) return m[1];
+    if (/^[\w-]{11}$/.test(s)) return s;
+    return null;
+  }
+
+  // Llama a la Data API con la key actual; si esa key se quedo sin cuota
+  // (quotaExceeded/dailyLimitExceeded), rota a la siguiente y reintenta. Si
+  // se agotan todas, tira el error para que el que llama lo maneje.
+  async function callYoutubeApi(path, params) {
+    const keys = (account && account.youtube_api_keys) || [];
+    if (!keys.length) throw new Error('sin_keys');
+    let lastErr = null;
+    for (let attempt = 0; attempt < keys.length; attempt++) {
+      const key = keys[ytKeyIndex];
+      const qs = new URLSearchParams({ ...params, key });
+      const res = await fetch(`${YOUTUBE_API_BASE}/${path}?${qs.toString()}`);
+      const body = await res.json().catch(() => null);
+      if (res.ok) return body;
+      const reason = body?.error?.errors?.[0]?.reason || '';
+      if (res.status === 403 && (reason === 'quotaExceeded' || reason === 'dailyLimitExceeded')) {
+        lastErr = new Error(reason);
+        ytKeyIndex = (ytKeyIndex + 1) % keys.length;
+        continue;
+      }
+      throw new Error(body?.error?.message || ('http_' + res.status));
+    }
+    throw lastErr || new Error('sin_cuota');
+  }
+
+  async function resolveLiveChatId(videoId) {
+    const data = await callYoutubeApi('videos', { part: 'liveStreamingDetails,snippet', id: videoId });
+    const item = data.items && data.items[0];
+    const chatId = item && item.liveStreamingDetails && item.liveStreamingDetails.activeLiveChatId;
+    if (!chatId) throw new Error('sin_directo');
+    return { liveChatId: chatId, title: (item.snippet && item.snippet.title) || '' };
+  }
+
+  function setYoutubeStatus(text, live) {
+    document.getElementById('youtube-chat-status').textContent = text;
+    document.getElementById('youtube-chat-dot').classList.toggle('live', !!live);
+  }
+
+  async function connectYoutubeChat() {
+    const input = document.getElementById('youtube-video-input');
+    const hint = document.getElementById('youtube-connect-hint');
+    const videoId = parseYoutubeVideoId(input.value);
+    if (!videoId) { toast('No pude reconocer ese link/ID de video'); return; }
+    hint.textContent = 'Buscando el directo…';
+    try {
+      const { liveChatId, title } = await resolveLiveChatId(videoId);
+      ytLiveChatId = liveChatId;
+      ytNextPageToken = null;
+      document.getElementById('youtube-connect-section').style.display = 'none';
+      document.getElementById('youtube-chat-section').style.display = '';
+      document.getElementById('youtube-chat-log').innerHTML = '<div class="kick-chat-empty">Conectando al chat…</div>';
+      setYoutubeStatus(title ? `En vivo · ${title}` : 'Chat de YouTube en vivo', true);
+      pollYoutubeChat();
+    } catch (err) {
+      console.error(err);
+      hint.textContent = err.message === 'sin_directo'
+        ? 'Ese video no tiene un directo activo ahora mismo.'
+        : 'No se pudo conectar (revisa el link o las API keys en "Mis enlaces").';
+      toast('No se pudo conectar el chat de YouTube');
+    }
+  }
+  window.connectYoutubeChat = connectYoutubeChat;
+
+  async function pollYoutubeChat() {
+    if (!ytLiveChatId) return;
+    try {
+      const params = { liveChatId: ytLiveChatId, part: 'snippet,authorDetails' };
+      if (ytNextPageToken) params.pageToken = ytNextPageToken;
+      const data = await callYoutubeApi('liveChat/messages', params);
+      ytNextPageToken = data.nextPageToken || null;
+      (data.items || []).forEach(handleYoutubeMessage);
+      setYoutubeStatus('Chat de YouTube en vivo', true);
+      const interval = Math.max(data.pollingIntervalMillis || 5000, 2000);
+      ytPollTimer = setTimeout(pollYoutubeChat, interval);
+    } catch (err) {
+      console.error(err);
+      if (err.message === 'sin_keys') {
+        setYoutubeStatus('Sin API keys configuradas', false);
+        return;
+      }
+      setYoutubeStatus('Sin cuota disponible por hoy, reintentando en unos minutos…', false);
+      ytPollTimer = setTimeout(pollYoutubeChat, 5 * 60000);
+    }
+  }
+
+  // Insignias como chips de texto (no hay un sheet de iconos de YouTube
+  // como el de Kick): reusan las mismas clases .kick-badge-* de color, que
+  // son solo gradientes por rol, no imagenes especificas de Kick.
+  const YT_BADGE_LABEL = { owner: 'STREAMER', moderator: 'MOD', member: 'MIEMBRO', verified: '✓' };
+  const YT_BADGE_CLASS = { owner: 'broadcaster', moderator: 'moderator', member: 'subscriber', verified: 'verified' };
+
+  function ytBadgesFor(author) {
+    const badges = [];
+    if (author.isChatOwner) badges.push('owner');
+    if (author.isChatModerator) badges.push('moderator');
+    if (author.isChatSponsor) badges.push('member');
+    if (author.isVerified) badges.push('verified');
+    return badges;
+  }
+
+  function renderYtBadges(badges) {
+    return (badges || []).map((b) => `<span class="kick-badge kick-badge-${YT_BADGE_CLASS[b] || 'other'}">${YT_BADGE_LABEL[b] || b}</span>`).join('');
+  }
+
+  function ytMessageTime(item) {
+    const d = item.snippet && item.snippet.publishedAt ? new Date(item.snippet.publishedAt) : new Date();
+    if (isNaN(d.getTime())) return '';
+    return d.toLocaleTimeString('es-PE', { hour12: false });
+  }
+
+  function renderYoutubeMessage(item) {
+    const log = document.getElementById('youtube-chat-log');
+    const empty = log.querySelector('.kick-chat-empty');
+    if (empty) empty.remove();
+    const wasNearBottom = log.scrollHeight - log.scrollTop - log.clientHeight < 40;
+    const author = item.authorDetails || {};
+    const type = item.snippet && item.snippet.type;
+    const isSuperchat = type === 'superChatEvent' || type === 'superStickerEvent';
+    const div = document.createElement('div');
+    div.className = 'kick-msg';
+    div.title = 'Click para mostrar este mensaje en el overlay';
+    const superchatTag = isSuperchat ? '<span class="kick-badge kick-badge-gifter">SUPERCHAT</span>' : '';
+    div.innerHTML = `<span class="kick-who"><span class="kick-msg-time">${escapeHtml(ytMessageTime(item))}</span>${renderYtBadges(ytBadgesFor(author))}${superchatTag}<span class="kick-user">${escapeHtml(author.displayName || '?')}:</span></span> ${escapeHtml((item.snippet && item.snippet.displayMessage) || '')}`;
+    div.addEventListener('click', () => toggleYoutubeHighlight(item, div));
+    log.appendChild(div);
+    while (log.children.length > KICK_LOG_MAX) log.removeChild(log.firstChild);
+    if (wasNearBottom) log.scrollTop = log.scrollHeight;
+  }
+
+  // Los superchats entran siempre a la cola de aprobacion (payments,
+  // source='youtube'), sin importar si el chat esta en pausa: la pausa solo
+  // afecta lo que se pinta en el log, no la cola de aprobacion.
+  async function insertYoutubeSuperchat(item) {
+    const author = item.authorDetails || {};
+    const type = item.snippet && item.snippet.type;
+    const details = (type === 'superChatEvent' ? item.snippet.superChatDetails : item.snippet.superStickerDetails) || {};
+    const row = {
+      user_id: uid,
+      name: author.displayName || 'Anónimo',
+      amount: details.amountDisplayString || '',
+      message: details.userComment || (item.snippet && item.snippet.displayMessage) || '',
+      source: 'youtube',
+      status: 'pending',
+      youtube_message_id: item.id,
+      raw: JSON.stringify({ avatar: author.profileImageUrl || '' }),
+    };
+    const { error } = await sb.from('payments').upsert(row, { onConflict: 'youtube_message_id', ignoreDuplicates: true });
+    if (error) console.error(error);
+  }
+
+  function handleYoutubeMessage(item) {
+    const type = item.snippet && item.snippet.type;
+    if (type === 'superChatEvent' || type === 'superStickerEvent') insertYoutubeSuperchat(item);
+    if (ytPaused) { ytPausedQueue.push(item); updateYoutubePauseBtn(); return; }
+    renderYoutubeMessage(item);
+  }
+
+  async function toggleYoutubeHighlight(item, el) {
+    const ch = ensureYtOverlayChannel();
+    if (!ch) { toast('No se pudo cargar tu cuenta, recarga la página'); return; }
+    const msgId = item.id;
+    if (ytHighlightedMsgId === msgId) {
+      await ch.send({ type: 'broadcast', event: 'yt-msg', payload: { clear: true } });
+      if (ytHighlightedEl) ytHighlightedEl.classList.remove('kick-msg-active');
+      ytHighlightedEl = null;
+      ytHighlightedMsgId = null;
+      toast('Mensaje quitado del overlay');
+      return;
+    }
+    if (ytHighlightedEl) ytHighlightedEl.classList.remove('kick-msg-active');
+    el.classList.add('kick-msg-active');
+    ytHighlightedEl = el;
+    ytHighlightedMsgId = msgId;
+    const author = item.authorDetails || {};
+    await ch.send({
+      type: 'broadcast',
+      event: 'yt-msg',
+      payload: {
+        name: author.displayName || 'Alguien',
+        content: (item.snippet && item.snippet.displayMessage) || '',
+        badges: ytBadgesFor(author),
+        avatar: author.profileImageUrl || '',
+      },
+    });
+    toast('Mensaje mostrado en el overlay 💜');
+  }
+
+  function updateYoutubePauseBtn() {
+    const btn = document.getElementById('youtube-pause-btn');
+    if (!btn) return;
+    btn.classList.toggle('paused', ytPaused);
+    btn.innerHTML = ytPaused
+      ? `${ICON.play} Reanudar (${ytPausedQueue.length})`
+      : `${ICON.pause} Pausar`;
+  }
+
+  function toggleYoutubePause() {
+    ytPaused = !ytPaused;
+    if (!ytPaused) {
+      const queued = ytPausedQueue;
+      ytPausedQueue = [];
+      queued.forEach(renderYoutubeMessage);
+    }
+    updateYoutubePauseBtn();
+  }
+  window.toggleYoutubePause = toggleYoutubePause;
+
+  function clearYoutubeChat() {
+    if (!confirm('¿Borrar todo el chat de YouTube mostrado hasta ahora? No se puede deshacer.')) return;
+    if (ytHighlightedEl) ytHighlightedEl.classList.remove('kick-msg-active');
+    ytHighlightedEl = null;
+    ytHighlightedMsgId = null;
+    document.getElementById('youtube-chat-log').innerHTML = '<div class="kick-chat-empty">Sin mensajes todavía.</div>';
+    toast('Chat de YouTube borrado');
+  }
+  window.clearYoutubeChat = clearYoutubeChat;
+
+  // manual=true solo cuando el streamer clickea "Desconectar" (vuelve a
+  // mostrar el formulario para pegar otro link); al perder cuota/errores no
+  // se llama con manual, as' que el formulario no reaparece solo.
+  function disconnectYoutubeChat(manual) {
+    clearTimeout(ytPollTimer);
+    ytPollTimer = null;
+    ytLiveChatId = null;
+    ytNextPageToken = null;
+    ytPaused = false;
+    ytPausedQueue = [];
+    ytHighlightedEl = null;
+    ytHighlightedMsgId = null;
+    document.getElementById('youtube-chat-section').style.display = 'none';
+    document.getElementById('youtube-chat-log').innerHTML = '';
+    if (manual) {
+      document.getElementById('youtube-video-input').value = '';
+      updateYoutubeConnectVisibility();
+    }
+  }
+  window.disconnectYoutubeChat = disconnectYoutubeChat;
 
   const testSamples = [
     { name: 'Rosa Quispe', amount: '5.00' }, // sin mensaje

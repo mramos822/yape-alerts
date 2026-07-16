@@ -219,21 +219,24 @@
 
   const yapeLogoSvg = `<img src="logo/logo.png" alt="logo">`;
 
-  // Que se esta mostrando ahora mismo: un yape (sale de la base, via
-  // syncCurrent) o un mensaje de chat de Kick resaltado (llega directo por
-  // broadcast, sin pasar por payments). Sirve para que un "no hay nada que
-  // mostrar" de payments no le pise el highlight de Kick, y viceversa.
-  let currentSource = null; // 'yape' | 'kick' | null
+  // Que se esta mostrando ahora mismo: una tarjeta que sale de la base (yape
+  // o superchat de YouTube ya aprobado, via syncCurrent) o un mensaje de
+  // chat de Kick/YouTube resaltado (llega directo por broadcast, sin pasar
+  // por payments). Sirve para que un "no hay nada que mostrar" de payments
+  // no le pise el highlight de chat, y viceversa.
+  let currentSource = null; // 'db' | 'kick' | 'youtube' | null
 
-  // Unica fuente de verdad para los yapes: le pregunta a la base cual es el
-  // pago activo de esta cuenta ahora mismo. Se llama al conectar, cada vez
-  // que la base avisa un cambio, y de fondo cada tanto por si algun aviso se pierde.
+  // Unica fuente de verdad para los pagos/superchats: le pregunta a la base
+  // cual es el pago activo de esta cuenta ahora mismo. Se llama al conectar,
+  // cada vez que la base avisa un cambio, y de fondo cada tanto por si algun
+  // aviso se pierde.
   async function syncCurrent() {
-    // Mientras haya un highlight de Kick al aire, un yape que sigue
-    // "on_overlay" (no fue descartado a mano en el panel) no debe taparlo;
-    // se vuelve a chequear solo cuando el highlight se suelta (ver
-    // handleKickBroadcast) asi no queda esperando el proximo poll de 30s.
-    if (currentSource === 'kick') return;
+    // Mientras haya un highlight de chat (Kick o YouTube) al aire, un pago
+    // que sigue "on_overlay" (no fue descartado a mano en el panel) no debe
+    // taparlo; se vuelve a chequear solo cuando el highlight se suelta (ver
+    // handleKickBroadcast/handleYoutubeBroadcast) asi no queda esperando el
+    // proximo poll de 30s.
+    if (currentSource === 'kick' || currentSource === 'youtube') return;
     const { data, error } = await sb.rpc('overlay_current', { p_key: OVERLAY_KEY });
     if (error) { console.error(error); return; }
     if (data) {
@@ -243,7 +246,7 @@
       const sig = JSON.stringify(data);
       if (shown && shown._sig === sig) return;
       showCard(data, sig);
-      currentSource = 'yape';
+      currentSource = 'db';
     } else {
       hideAll();
       currentSource = null;
@@ -261,6 +264,19 @@
     }
     showCard({ id: 'kick-live', name: payload.name, content: payload.content, badges: payload.badges, avatar: payload.avatar, source: 'kick' }, JSON.stringify(payload));
     currentSource = 'kick';
+  }
+
+  function handleYoutubeBroadcast(payload) {
+    if (!payload || payload.clear) {
+      if (currentSource === 'youtube') {
+        hideAll();
+        currentSource = null;
+        syncCurrent();
+      }
+      return;
+    }
+    showCard({ id: 'youtube-live', name: payload.name, content: payload.content, badges: payload.badges, avatar: payload.avatar, source: 'youtube' }, JSON.stringify(payload));
+    currentSource = 'youtube';
   }
 
   // Mismo mapeo de insignias que admin.html (public/kick-badges/*.png,
@@ -300,6 +316,21 @@
     }).join('');
   }
 
+  // Insignias de YouTube: llegan como strings simples ('owner'/'moderator'/
+  // 'member'/'verified', ver ytBadgesFor en admin.html), no como objetos con
+  // icono real (no hay sheet de YouTube): se pintan como chip de color.
+  const YT_BADGE_LABEL = { owner: 'STREAMER', moderator: 'MOD', member: 'MIEMBRO', verified: '✓' };
+  const YT_BADGE_COLOR = { owner: '#E5484D', moderator: '#14C6A4', member: '#8B34A8', verified: '#20E7B9' };
+
+  function renderYtBadges(badges) {
+    if (!Array.isArray(badges) || !badges.length) return '';
+    return badges.map((b) => {
+      const label = YT_BADGE_LABEL[b] || String(b || '').slice(0, 4).toUpperCase();
+      const color = YT_BADGE_COLOR[b] || '#6E2D8F';
+      return `<span class="kick-badge-icon" style="width:auto;padding:0 4px;background:${color};color:#fff;font-size:8px;font-weight:800;display:inline-flex;align-items:center;justify-content:center;border-radius:4px;" title="${escapeHtml(label)}">${escapeHtml(label)}</span>`;
+    }).join('');
+  }
+
   // El contenido trae los emotes inline como "[emote:ID:Nombre]"; se
   // reemplazan por la imagen real del CDN publico de Kick.
   function renderKickContent(content) {
@@ -323,6 +354,7 @@
     sb.channel('overlay-' + OVERLAY_KEY, { config: { private: true } })
       .on('broadcast', { event: 'sync' }, () => { syncCurrent(); })
       .on('broadcast', { event: 'kick-msg' }, ({ payload }) => handleKickBroadcast(payload))
+      .on('broadcast', { event: 'yt-msg' }, ({ payload }) => handleYoutubeBroadcast(payload))
       .on('broadcast', { event: 'kick-avatar-preload' }, ({ payload }) => {
         // Solo calienta la cache de imagenes del navegador (OBS no comparte
         // cache con la pestana del panel): no se muestra nada con esto.
@@ -368,29 +400,46 @@
 
     const name = payment.name || 'Alguien';
     const isKick = payment.source === 'kick';
-    const nameColor = isKick ? '#FFA606' : tierColor(payment.amount);
-    const messageColor = isKick ? '#222222' : nameColor;
+    const isYoutube = payment.source === 'youtube';
+    // Un superchat aprobado (viene de payments, via syncCurrent) y un
+    // mensaje de chat de YouTube resaltado (viene directo por broadcast)
+    // comparten source='youtube', pero se pintan distinto: el highlight
+    // trae `content` (aunque sea texto vacio) y el superchat no.
+    const isChatHighlight = (isKick || isYoutube) && payment.content !== undefined;
+    const nameColor = isKick ? '#FFA606' : isYoutube ? '#FF3B30' : tierColor(payment.amount);
+    const messageColor = isChatHighlight ? '#222222' : nameColor;
     const el = document.createElement('div');
     el.className = 'superchat';
     el.style.setProperty('--name-bg-color', nameColor);
     el.style.setProperty('--message-bg-color', messageColor);
-    el.style.setProperty('--message-color', isKick ? '#F2F2F2' : '#06251f');
+    el.style.setProperty('--message-color', isChatHighlight ? '#F2F2F2' : '#06251f');
     el.style.setProperty('--author-avatar-border-color', nameColor);
-    const avatar = isKick
-      ? (payment.avatar
-          ? `<img src="${escapeHtml(payment.avatar)}" alt="${escapeHtml(name)}">`
+    // El avatar real llega directo en el highlight (payment.avatar); para un
+    // superchat aprobado va guardado en `raw` (payments no tiene columna
+    // dedicada para eso, ver insertYoutubeSuperchat en admin.html).
+    let avatarUrl = payment.avatar || '';
+    if (!avatarUrl && isYoutube && payment.raw) {
+      try { avatarUrl = JSON.parse(payment.raw).avatar || ''; } catch { /* sin avatar */ }
+    }
+    const avatar = (isChatHighlight || isYoutube)
+      ? (avatarUrl
+          ? `<img src="${escapeHtml(avatarUrl)}" alt="${escapeHtml(name)}">`
           : `<div class="hl-initial">${escapeHtml(name.trim().charAt(0).toUpperCase() || '?')}</div>`)
       : yapeLogoSvg;
-    // El "panelito" de monto es solo para yapes: un mensaje de chat de Kick
-    // no tiene donation ribbon.
-    const donation = isKick
+    // El "panelito" de monto es solo para yapes y superchats: un mensaje de
+    // chat resaltado (Kick o YouTube) no tiene donation ribbon.
+    const donation = isChatHighlight
       ? ''
-      : `<div class="donation"><div class="donation-title">YAPE</div><div class="donation-subtitle">S/. ${payment.amount || '0.00'}</div></div>`;
-    const nameLine = isKick
-      ? `${renderKickBadges(payment.badges)}${escapeHtml(name)}`
+      : isYoutube
+        ? `<div class="donation"><div class="donation-title">SUPERCHAT</div><div class="donation-subtitle">${escapeHtml(payment.amount || '')}</div></div>`
+        : `<div class="donation"><div class="donation-title">YAPE</div><div class="donation-subtitle">S/. ${payment.amount || '0.00'}</div></div>`;
+    const nameLine = isChatHighlight
+      ? `${isKick ? renderKickBadges(payment.badges) : renderYtBadges(payment.badges)}${escapeHtml(name)}`
       : escapeHtml(name);
-    const textLine = isKick
-      ? (payment.content ? renderKickContent(payment.content) : '<em>(sin mensaje)</em>')
+    const textLine = isChatHighlight
+      ? ((payment.content)
+          ? (isKick ? renderKickContent(payment.content) : escapeHtml(payment.content))
+          : '<em>(sin mensaje)</em>')
       : (payment.message ? escapeHtml(payment.message) : '<em>(sin mensaje)</em>');
     el.innerHTML = `
       <div class="hl-message">
