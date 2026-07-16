@@ -416,6 +416,151 @@
     return '#00E5F9';
   }
 
+  // Los 7 colores oficiales de tramo de Super Chat (azul, celeste, verde,
+  // amarillo, naranja, magenta, rojo). El monto minimo de cada tramo NO es
+  // el mismo numero en todas las monedas: YouTube lo redondea a un numero
+  // "lindo" en la moneda local (confirmado con la tabla real en yenes:
+  // ¥100/200/500/1000/2000/5000/10000 = los tramos de USD 1/2/5/10/20/50/100
+  // convertidos y redondeados a la secuencia 1-2-5). YouTube no publica una
+  // tabla oficial con el monto exacto de cada moneda, asi que se aproxima
+  // igual: tasa de cambio a USD + redondeo a la secuencia 1-2-5. Los soles
+  // (moneda de los yapes, no-YouTube, ver tierColor arriba) usan la escala
+  // ya probada a mano en vez de esta aproximacion.
+  const YT_TIER_COLORS = ['#2979FF', '#00E5F9', '#1DE9B6', '#FCCB2B', '#F17E05', '#E02766', '#DD2919'];
+  const YT_USD_TIERS = [1, 2, 5, 10, 20, 50, 100];
+
+  // Todas las monedas en las que YouTube deja mandar un Super Chat/Super
+  // Sticker (America, Europa, Asia, Oceania, Medio Oriente y Africa que
+  // YouTube habilita). `rate` son unidades de esa moneda por 1 USD:
+  // aproximado, solo sirve para clasificar el tramo de color (no para
+  // mostrar montos exactos), y hay que actualizarlo de tanto en tanto,
+  // sobre todo en monedas con inflacion alta (ARS, TRY, NGN). `prefixes`
+  // es como YouTube escribe el monto (amountDisplayString/lo que lee el
+  // scraper de #purchase-amount), de mas especifico a menos especifico.
+  const YT_CURRENCIES = [
+    { code: 'USD', rate: 1, prefixes: ['US$', 'USD'] },
+    { code: 'EUR', rate: 0.92, prefixes: ['€', 'EUR'] },
+    { code: 'GBP', rate: 0.79, prefixes: ['£', 'GBP'] },
+    { code: 'JPY', rate: 155, prefixes: ['JP¥', '¥', 'JPY'] },
+    { code: 'KRW', rate: 1380, prefixes: ['₩', 'KRW'] },
+    { code: 'TWD', rate: 32, prefixes: ['NT$', 'TWD'] },
+    { code: 'HKD', rate: 7.8, prefixes: ['HK$', 'HKD'] },
+    { code: 'SGD', rate: 1.35, prefixes: ['S$', 'SGD'] },
+    { code: 'INR', rate: 86, prefixes: ['₹', 'INR', 'Rs'] },
+    { code: 'IDR', rate: 16300, prefixes: ['Rp', 'IDR'] },
+    { code: 'VND', rate: 25400, prefixes: ['₫', 'VND'] },
+    { code: 'THB', rate: 34, prefixes: ['฿', 'THB'] },
+    { code: 'PHP', rate: 58, prefixes: ['₱', 'PHP'] },
+    { code: 'MYR', rate: 4.5, prefixes: ['RM', 'MYR'] },
+    { code: 'AUD', rate: 1.55, prefixes: ['A$', 'AUD'] },
+    { code: 'NZD', rate: 1.7, prefixes: ['NZ$', 'NZD'] },
+    { code: 'CAD', rate: 1.42, prefixes: ['CA$', 'CAD', 'C$'] },
+    { code: 'CHF', rate: 0.88, prefixes: ['CHF', 'Fr.'] },
+    { code: 'MXN', rate: 18.5, prefixes: ['MX$', 'MXN'] },
+    { code: 'BRL', rate: 5.6, prefixes: ['R$', 'BRL'] },
+    { code: 'ARS', rate: 1250, prefixes: ['ARS$', 'AR$', 'ARS'] },
+    { code: 'CLP', rate: 950, prefixes: ['CLP$', 'CLP'] },
+    { code: 'COP', rate: 4100, prefixes: ['COP$', 'CO$', 'COP'] },
+    { code: 'PEN', rate: 3.75, prefixes: ['S/.', 'S/', 'PEN'] },
+    { code: 'ZAR', rate: 18.5, prefixes: ['ZAR', 'R'] },
+    { code: 'TRY', rate: 34, prefixes: ['₺', 'TRY'] },
+    { code: 'NOK', rate: 10.9, prefixes: ['NOK', 'kr'] },
+    { code: 'SEK', rate: 10.6, prefixes: ['SEK'] },
+    { code: 'DKK', rate: 6.9, prefixes: ['DKK'] },
+    { code: 'PLN', rate: 4.0, prefixes: ['zł', 'PLN'] },
+    { code: 'CZK', rate: 23.5, prefixes: ['Kč', 'CZK'] },
+    { code: 'HUF', rate: 380, prefixes: ['Ft', 'HUF'] },
+    { code: 'RON', rate: 4.6, prefixes: ['lei', 'RON'] },
+    { code: 'ILS', rate: 3.7, prefixes: ['₪', 'ILS'] },
+    { code: 'SAR', rate: 3.75, prefixes: ['SAR', 'SR', 'ر.س'] },
+    { code: 'NGN', rate: 1600, prefixes: ['₦', 'NGN'] },
+    { code: 'BAM', rate: 1.8, prefixes: ['BAM', 'KM'] },
+    { code: 'BYN', rate: 3.3, prefixes: ['BYN', 'Br'] },
+  ];
+  // Lista plana de (prefijo -> moneda) ordenada del prefijo mas largo al
+  // mas corto: hay que probar "US$"/"CLP$"/"NT$" antes que el "$" o "R"
+  // sueltos de otra moneda, si no cualquier simbolo generico gana primero.
+  const YT_CURRENCY_PREFIXES = YT_CURRENCIES
+    .flatMap((c) => c.prefixes.map((p) => ({ prefix: p, code: c.code })))
+    .concat([{ prefix: '$', code: 'USD' }])
+    .sort((a, b) => b.prefix.length - a.prefix.length);
+  const YT_RATE_BY_CODE = Object.fromEntries(YT_CURRENCIES.map((c) => [c.code, c.rate]));
+
+  function matchYoutubeCurrency(text) {
+    const s = String(text || '');
+    return YT_CURRENCY_PREFIXES.find((p) => s.includes(p.prefix)) || { prefix: '', code: 'USD' };
+  }
+
+  function detectYoutubeCurrency(text) {
+    return matchYoutubeCurrency(text).code;
+  }
+
+  // Convierte el texto de monto tal cual lo muestra YouTube ("¥1,000",
+  // "S/. 20.00", "1.234,56 €", "Rp10.000") a numero, sin asumir que la
+  // coma es siempre miles ni que el punto es siempre decimal (cada region
+  // usa una convencion distinta). El simbolo de moneda se saca ANTES de
+  // limpiar el texto: algunos (ej. "S/.", "Fr.") traen un punto propio que
+  // si no se quita se confunde con el separador decimal/miles del monto.
+  function parseYoutubeAmount(text) {
+    const raw = String(text || '');
+    const { prefix } = matchYoutubeCurrency(raw);
+    const withoutPrefix = prefix ? raw.split(prefix).join('') : raw;
+    const cleaned = withoutPrefix.replace(/[^\d.,]/g, '');
+    if (!cleaned) return 0;
+    const lastComma = cleaned.lastIndexOf(',');
+    const lastDot = cleaned.lastIndexOf('.');
+    let decimalSep = null;
+    if (lastComma > -1 && lastDot > -1) {
+      decimalSep = lastComma > lastDot ? ',' : '.';
+    } else if (lastComma > -1) {
+      const parts = cleaned.split(',');
+      decimalSep = (parts.length === 2 && parts[1].length <= 2) ? ',' : null;
+    } else if (lastDot > -1) {
+      const parts = cleaned.split('.');
+      decimalSep = (parts.length === 2 && parts[1].length <= 2) ? '.' : null;
+    }
+    let normalized;
+    if (decimalSep === ',') normalized = cleaned.split('.').join('').replace(',', '.');
+    else if (decimalSep === '.') normalized = cleaned.split(',').join('');
+    else normalized = cleaned.replace(/[.,]/g, '');
+    return parseFloat(normalized) || 0;
+  }
+
+  // Redondea a la potencia de 10 mas cercana en la secuencia 1-2-5-10 (los
+  // "numeros lindos" que usa YouTube para los tramos, ver comentario de
+  // YT_TIER_COLORS).
+  function niceRound125(x) {
+    if (!(x > 0)) return x;
+    const mag = Math.pow(10, Math.floor(Math.log10(x)));
+    let best = mag;
+    let bestDiff = Infinity;
+    [1, 2, 5, 10].forEach((step) => {
+      const candidate = step * mag;
+      const diff = Math.abs(Math.log(x / candidate));
+      if (diff < bestDiff) { bestDiff = diff; best = candidate; }
+    });
+    return best;
+  }
+
+  // Color de tramo de un Super Chat/Super Sticker de YouTube, en base al
+  // texto de monto tal cual lo muestra YouTube (con su simbolo/codigo de
+  // moneda). A diferencia de tierColor (que asume soles), esta reconoce la
+  // moneda y clasifica el monto contra los tramos de ESA moneda.
+  function ytTierColor(amountText) {
+    const code = detectYoutubeCurrency(amountText);
+    // Los soles ya tienen una escala probada a mano (tierColor de arriba):
+    // no hace falta aproximarla con tasa de cambio + redondeo.
+    if (code === 'PEN') return tierColor(parseYoutubeAmount(amountText));
+    const amount = parseYoutubeAmount(amountText);
+    const rate = YT_RATE_BY_CODE[code] || 1;
+    let color = YT_TIER_COLORS[0];
+    for (let i = 0; i < YT_USD_TIERS.length; i++) {
+      const localTier = niceRound125(YT_USD_TIERS[i] * rate);
+      if (amount >= localTier) color = YT_TIER_COLORS[i];
+    }
+    return color;
+  }
+
   // El nombre y el mensaje los escribe el que yapea: se escapan para que
   // nadie pueda meter HTML/scripts en el stream.
   function escapeHtml(s) {
@@ -450,7 +595,7 @@
     // monto que un yape (tierColor), no un color fijo.
     const nameColor = isKick ? '#FFA606'
       : (isYoutube && isChatHighlight) ? '#03E7C0'
-      : isYoutube ? tierColor((String(payment.amount || '').match(/[\d.]+/) || [0])[0])
+      : isYoutube ? ytTierColor(payment.amount)
       : tierColor(payment.amount);
     const messageColor = isChatHighlight ? '#222222' : nameColor;
     const el = document.createElement('div');
