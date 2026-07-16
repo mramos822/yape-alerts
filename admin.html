@@ -2446,6 +2446,12 @@
     if (data.type === 'yt-popout-status') { updateYtExtStatus(data.open); return; }
     if (!data.name) return;
     ytTierCache.set(data.name, data);
+    // Actualiza cualquier mensaje de esta persona que ya este pintado en el
+    // log (por ejemplo, la API lo mostro primero sin icono real, y recien
+    // ahora llega el dato bueno de la extension via yt-tier o un mensaje
+    // nuevo), en vez de dejarlo con el chip de texto hasta que escriba de
+    // nuevo.
+    refreshYtBadgesForAuthor(data.name, ytAuthorFromExtensionData(data));
     if (data.type === 'yt-message') handleExtensionYoutubeMessage(data);
   });
 
@@ -2470,6 +2476,23 @@
   // API oficial (snippet/authorDetails), asi se reusa exactamente el mismo
   // render/insercion de superchats que ya existe (handleYoutubeMessage) sin
   // duplicar logica entre las dos fuentes.
+  // La extension manda los roles como isOwner/isMod/isMember (ver
+  // scraper.js); esto los traduce a la misma forma que ya usan
+  // ytBadgesFor/renderYtBadgeIcons (isChatOwner/isChatModerator/etc, igual
+  // que la API oficial), para no duplicar ese mapeo en cada lugar que lo
+  // necesita (mensaje nuevo, reescaneo de tier, actualizar un mensaje viejo).
+  function ytAuthorFromExtensionData(data) {
+    return {
+      displayName: data.name || 'Anónimo',
+      profileImageUrl: data.avatar || '',
+      isChatOwner: !!data.isOwner,
+      isChatModerator: !!data.isMod,
+      isChatSponsor: !!data.isMember,
+      isVerified: !!data.isVerified,
+      badgeImages: data.badgeImages || [],
+    };
+  }
+
   function fakeYoutubeItemFromExtension(data) {
     const type = data.kind === 'superChat' ? 'superChatEvent'
       : data.kind === 'superSticker' ? 'superStickerEvent'
@@ -2485,15 +2508,7 @@
     return {
       id: data.msgId,
       snippet,
-      authorDetails: {
-        displayName: data.name || 'Anónimo',
-        profileImageUrl: data.avatar || '',
-        isChatOwner: !!data.isOwner,
-        isChatModerator: !!data.isMod,
-        isChatSponsor: !!data.isMember,
-        isVerified: !!data.isVerified,
-        badgeImages: data.badgeImages || [],
-      },
+      authorDetails: ytAuthorFromExtensionData(data),
     };
   }
 
@@ -2644,11 +2659,30 @@
     const superchatTag = isSuperchat ? '<span class="kick-badge kick-badge-yt-superchat">SUPERCHAT</span>' : '';
     const milestoneTag = ytMilestoneTag(item);
     const badgesHtml = renderYtBadgeIcons(author) ?? renderYtBadges(ytBadgesFor(author), author.displayName);
-    div.innerHTML = `<span class="kick-who"><span class="kick-msg-time">${escapeHtml(ytMessageTime(item))}</span><span class="kick-user">${escapeHtml(author.displayName || '?')}:</span>${badgesHtml}${superchatTag}${milestoneTag}</span> ${renderYoutubeContent((item.snippet && item.snippet.displayMessage) || '')}`;
+    // data-yt-author marca este "slot" de insignias para poder actualizarlo
+    // despues sin redibujar el mensaje entero (ver refreshYtBadgesForAuthor):
+    // un mensaje ya pintado por la API (sin icono real todavia) se
+    // actualiza solo apenas llega el dato real de la extension, en vez de
+    // quedarse pegado con el chip de texto hasta el proximo mensaje nuevo.
+    div.innerHTML = `<span class="kick-who"><span class="kick-msg-time">${escapeHtml(ytMessageTime(item))}</span><span class="kick-user">${escapeHtml(author.displayName || '?')}:</span><span class="yt-badges-slot" data-yt-author="${escapeHtml(author.displayName || '')}">${badgesHtml}</span>${superchatTag}${milestoneTag}</span> ${renderYoutubeContent((item.snippet && item.snippet.displayMessage) || '')}`;
     div.addEventListener('click', () => toggleYoutubeHighlight(item, div));
     log.appendChild(div);
     while (log.children.length > KICK_LOG_MAX) log.removeChild(log.firstChild);
     if (wasNearBottom) log.scrollTop = log.scrollHeight;
+  }
+
+  // Cuando llega un dato nuevo de insignia/tier para alguien que ya tiene
+  // mensajes pintados en el log (ej. la API los mostro primero, sin icono
+  // real, y la extension recien ahora manda el dato), se actualizan esos
+  // mensajes ya existentes en vez de esperar a que esa persona escriba de
+  // nuevo.
+  function refreshYtBadgesForAuthor(name, authorLike) {
+    if (!name) return;
+    const log = document.getElementById('youtube-chat-log');
+    const slots = log.querySelectorAll(`.yt-badges-slot[data-yt-author="${CSS.escape(name)}"]`);
+    if (!slots.length) return;
+    const badgesHtml = renderYtBadgeIcons(authorLike) ?? renderYtBadges(ytBadgesFor(authorLike), name);
+    slots.forEach((slot) => { slot.innerHTML = badgesHtml; });
   }
 
   // Los superchats entran siempre a la cola de aprobacion (payments,
