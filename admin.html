@@ -1057,6 +1057,18 @@
       <div id="kick-chat-log" class="kick-chat-log"></div>
     </div>
 
+    <div id="youtube-channel-head" class="kick-channel-head" style="display:none">
+      <img id="youtube-channel-avatar" class="kick-channel-avatar" alt="">
+      <div class="kick-channel-info">
+        <div class="kick-channel-name">
+          <span id="youtube-channel-username"></span>
+          <span class="kick-dot" id="youtube-channel-live-dot"></span>
+          <span id="youtube-channel-status-text" class="kick-channel-status"></span>
+        </div>
+        <div class="kick-channel-title" id="youtube-channel-title"></div>
+      </div>
+    </div>
+
     <div id="youtube-chat-section" style="display:none">
       <div class="kick-chat-head">
         <span class="kick-dot" id="youtube-chat-dot"></span>
@@ -2317,6 +2329,7 @@
   let ytKeyIndex = 0;
   let ytLiveChatId = null;
   let ytCurrentVideoId = null;
+  let ytCurrentVideoTitle = '';
   let ytNextPageToken = null;
   let ytPollTimer = null;
   let ytPaused = false;
@@ -2400,10 +2413,12 @@
     ytCurrentVideoId = videoId;
     ytNextPageToken = null;
     ytAutoConnected = !!auto;
+    ytCurrentVideoTitle = title || '';
     document.getElementById('youtube-connect-section').style.display = 'none';
     document.getElementById('youtube-chat-section').style.display = '';
     document.getElementById('youtube-chat-log').innerHTML = '<div class="kick-chat-empty">Conectando al chat…</div>';
     setYoutubeStatus(title ? `En vivo · ${title}` : 'Chat de YouTube en vivo', true);
+    refreshYoutubeChannelHead();
     pollYoutubeChat();
     // Si la extension del navegador esta instalada (ver browser-extension/),
     // esto le avisa que abra sola el chat popout de este video: asi el
@@ -2501,11 +2516,90 @@
     // sin que arranque el directo, un intervalo mas corto se come la cuota
     // del dia antes de que el streamer llegue a transmitir.
     ytChannelWatchTimer = setInterval(checkYoutubeChannelLive, 5 * 60000);
+    refreshYoutubeChannelHead();
+    startYoutubeChannelHeadTimer();
   }
 
   function stopYoutubeChannelWatcher() {
     clearInterval(ytChannelWatchTimer);
     ytChannelWatchTimer = null;
+    clearInterval(ytChannelHeadTimer);
+    ytChannelHeadTimer = null;
+    const head = document.getElementById('youtube-channel-head');
+    if (head) head.style.display = 'none';
+  }
+
+  // ---------- Cabecera del canal de YouTube (igual que la de Kick) ----------
+  // A diferencia de Kick (API publica y gratis), el nombre/foto del canal
+  // solo se pide UNA vez con channels.list (1 unidad, barato) y se cachea:
+  // no hace falta repetirlo cada 60s como con Kick, porque ni cambia tan
+  // seguido ni nos dice si esta en vivo (eso ya lo sabemos solos por
+  // ytLiveChatId/ytCurrentVideoTitle, sin gastar mas cuota).
+  let ytChannelInfoCache = null; // { channelId, title, avatar }
+  let ytChannelHeadTimer = null;
+
+  const YT_LAST_LIVE_PREFIX = 'yape-alert-yt-lastlive-';
+  function ytLastLiveKey(channelId) { return YT_LAST_LIVE_PREFIX + channelId; }
+  function getYtLastLiveAt(channelId) {
+    const v = localStorage.getItem(ytLastLiveKey(channelId));
+    return v ? Number(v) : null;
+  }
+  function setYtLastLiveAt(channelId) {
+    try { localStorage.setItem(ytLastLiveKey(channelId), String(Date.now())); } catch (err) { console.error(err); }
+  }
+
+  async function fetchYoutubeChannelInfo(channelId) {
+    if (ytChannelInfoCache && ytChannelInfoCache.channelId === channelId) return ytChannelInfoCache;
+    try {
+      const data = await callYoutubeApi('channels', { part: 'snippet', id: channelId });
+      const item = data.items && data.items[0];
+      if (!item) return null;
+      ytChannelInfoCache = {
+        channelId,
+        title: item.snippet.title,
+        avatar: (item.snippet.thumbnails && (item.snippet.thumbnails.default || {}).url) || '',
+      };
+      return ytChannelInfoCache;
+    } catch (err) {
+      console.error(err);
+      return null;
+    }
+  }
+
+  // Repinta la cabecera con lo que ya se sabe (sin gastar cuota nueva): se
+  // llama al conectar/desconectar un directo, y cada 60s solo para que el
+  // "hace X" de la ultima conexion se mantenga actualizado mientras esta
+  // offline.
+  async function refreshYoutubeChannelHead() {
+    const head = document.getElementById('youtube-channel-head');
+    const channelId = account && account.youtube_channel_id;
+    if (!channelId) { head.style.display = 'none'; return; }
+    const info = await fetchYoutubeChannelInfo(channelId);
+    if (!info) { head.style.display = 'none'; return; }
+    const isLive = !!ytLiveChatId;
+    const statusEl = document.getElementById('youtube-channel-status-text');
+    document.getElementById('youtube-channel-avatar').src = info.avatar;
+    document.getElementById('youtube-channel-username').textContent = info.title;
+    document.getElementById('youtube-channel-live-dot').classList.toggle('live', isLive);
+    if (isLive) {
+      setYtLastLiveAt(channelId);
+      statusEl.textContent = 'En directo';
+      statusEl.className = 'kick-channel-status live';
+      document.getElementById('youtube-channel-title').textContent = ytCurrentVideoTitle || '';
+    } else {
+      statusEl.textContent = 'Offline';
+      statusEl.className = 'kick-channel-status offline';
+      const lastLive = getYtLastLiveAt(channelId);
+      document.getElementById('youtube-channel-title').textContent = lastLive
+        ? `Última conexión ${formatElapsed(Date.now() - lastLive)}`
+        : 'Sin datos de la última conexión';
+    }
+    head.style.display = 'flex';
+  }
+
+  function startYoutubeChannelHeadTimer() {
+    clearInterval(ytChannelHeadTimer);
+    ytChannelHeadTimer = setInterval(refreshYoutubeChannelHead, 60000);
   }
 
   // Insignias como chips de texto (no hay un sheet de iconos de YouTube
@@ -2897,6 +2991,7 @@
     ytExtensionActive = false;
     ytLiveChatId = null;
     ytCurrentVideoId = null;
+    ytCurrentVideoTitle = '';
     ytNextPageToken = null;
     ytAutoConnected = false;
     ytPaused = false;
@@ -2907,6 +3002,7 @@
     document.getElementById('youtube-chat-log').innerHTML = '';
     if (manual) document.getElementById('youtube-video-input').value = '';
     updateYoutubeConnectVisibility();
+    refreshYoutubeChannelHead();
     // Si la extension abrió sola el chat popout, que lo cierre tambien sola.
     postToYoutubeExtension({ source: 'yape-alert-panel', type: 'yt-chat-disconnected' });
   }
