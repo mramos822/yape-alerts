@@ -1749,6 +1749,10 @@
     const log = document.getElementById('kick-chat-log');
     const empty = log.querySelector('.kick-chat-empty');
     if (empty) empty.remove();
+    // Si el streamer esta leyendo mensajes viejos mas arriba, un mensaje
+    // nuevo no debe arrastrarlo de golpe al fondo: solo se sigue pegado
+    // al final si ya estaba ahi (con un margen chico de tolerancia).
+    const wasNearBottom = log.scrollHeight - log.scrollTop - log.clientHeight < 40;
     const username = payload.sender?.username || '?';
     const rawColor = payload.sender?.identity?.color || '';
     const color = /^#[0-9a-fA-F]{3,8}$/.test(rawColor) ? rawColor : '';
@@ -1759,7 +1763,7 @@
     div.addEventListener('click', () => toggleKickHighlight(payload, div));
     log.appendChild(div);
     while (log.children.length > KICK_LOG_MAX) log.removeChild(log.firstChild);
-    log.scrollTop = log.scrollHeight;
+    if (wasNearBottom) log.scrollTop = log.scrollHeight;
     // Precarga la foto de perfil apenas se ve el mensaje, no recien al
     // clickear, para que resaltarlo salga instantaneo la mayoria de las veces.
     resolveKickAvatar(payload.sender?.slug || payload.sender?.username);
