@@ -322,24 +322,6 @@
   const YT_BADGE_LABEL = { owner: 'STREAMER', moderator: 'MOD', member: 'MIEMBRO', verified: '✓' };
   const YT_BADGE_COLOR = { owner: '#E5484D', moderator: '#14C6A4', member: '#8B34A8', verified: '#20E7B9' };
 
-  // Si la extension del navegador esta activa, manda el icono REAL de cada
-  // insignia (badgeImages, tal cual lo muestra YouTube); sin ella, se cae
-  // al chip de color de mas abajo.
-  function renderYtBadgeImages(badgeImages) {
-    if (!Array.isArray(badgeImages) || !badgeImages.length) return '';
-    return badgeImages.map((b) => {
-      if (b.isMask) {
-        const style = `background-color:${escapeHtml(b.color)};-webkit-mask-image:url('${escapeHtml(b.src)}');mask-image:url('${escapeHtml(b.src)}');-webkit-mask-position:${escapeHtml(b.maskPosition)};mask-position:${escapeHtml(b.maskPosition)};-webkit-mask-size:${escapeHtml(b.maskSize)};mask-size:${escapeHtml(b.maskSize)};-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;`;
-        return `<span class="kick-badge-icon" style="${style}" title="${escapeHtml(b.alt || '')}"></span>`;
-      }
-      if (b.bgPosition) {
-        const style = `background-image:url('${escapeHtml(b.src)}');background-position:${escapeHtml(b.bgPosition)};background-size:${escapeHtml(b.bgSize)};background-repeat:no-repeat;`;
-        return `<span class="kick-badge-icon" style="${style}" title="${escapeHtml(b.alt || '')}"></span>`;
-      }
-      return `<img class="kick-badge-icon" src="${escapeHtml(b.src)}" alt="${escapeHtml(b.alt || '')}" title="${escapeHtml(b.alt || '')}">`;
-    }).join('');
-  }
-
   function renderYtBadges(badges) {
     if (!Array.isArray(badges) || !badges.length) return '';
     return badges.map((b) => {
@@ -472,7 +454,7 @@
         ? `<div class="donation"><div class="donation-title">DONATION</div><div class="donation-subtitle">${escapeHtml(payment.amount || '')}</div></div>`
         : `<div class="donation"><div class="donation-title">YAPE</div><div class="donation-subtitle">S/. ${payment.amount || '0.00'}</div></div>`;
     const nameLine = isChatHighlight
-      ? `${isKick ? renderKickBadges(payment.badges) : (renderYtBadgeImages(payment.badgeImages) || renderYtBadges(payment.badges))}${escapeHtml(name)}`
+      ? `${isKick ? renderKickBadges(payment.badges) : renderYtBadges(payment.badges)}${escapeHtml(name)}`
       : escapeHtml(name);
     const textLine = isChatHighlight
       ? ((payment.content)

@@ -2687,6 +2687,12 @@
     ytHighlightedEl = el;
     ytHighlightedMsgId = msgId;
     const author = item.authorDetails || {};
+    // badgeImages NO se manda: algunos iconos de YouTube (mod/verificado)
+    // vienen como data:image/svg+xml pesado, y el broadcast en tiempo real
+    // de Supabase tiene un limite de tamaño — mandarlos hacia rompia el
+    // mensaje entero en silencio. El overlay se queda con el chip de texto
+    // (liviano y confiable); los iconos reales quedan solo en el panel,
+    // donde no hay limite porque todo es local.
     await ch.send({
       type: 'broadcast',
       event: 'yt-msg',
@@ -2694,7 +2700,6 @@
         name: author.displayName || 'Alguien',
         content: (item.snippet && item.snippet.displayMessage) || '',
         badges: ytBadgesFor(author),
-        badgeImages: author.badgeImages || [],
         avatar: author.profileImageUrl || '',
       },
     });
