@@ -516,6 +516,14 @@
     font-weight: 900;
     color: var(--ink);
   }
+  .kick-channel-status {
+    font-size: 11px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: .02em;
+  }
+  .kick-channel-status.live { color: var(--teal); }
+  .kick-channel-status.offline { color: var(--ink-mute); }
   .kick-channel-title {
     font-size: 12.5px;
     font-weight: 700;
@@ -940,6 +948,7 @@
           <div class="kick-channel-name">
             <span id="kick-channel-username"></span>
             <span class="kick-dot" id="kick-channel-live-dot"></span>
+            <span id="kick-channel-status-text" class="kick-channel-status"></span>
           </div>
           <div class="kick-channel-title" id="kick-channel-title"></div>
         </div>
@@ -1834,8 +1843,37 @@
 
   // Cabecera tipo Kick arriba del chat: foto, nombre del canal, punto de
   // "en vivo" y titulo del directo actual. Se refresca cada tanto porque
-  // el titulo puede cambiar sin que se reconecte el chat.
+  // el estado puede cambiar sin que se reconecte el chat.
   let kickChannelRefreshTimer = null;
+
+  // La API de Kick no expone "ultima vez en vivo": se guarda localmente,
+  // por chatroom, cada vez que se detecta el canal en vivo, para poder
+  // mostrar "ultima conexion hace X" cuando esta offline.
+  const KICK_LAST_LIVE_PREFIX = 'yape-alert-kick-lastlive-';
+
+  function kickLastLiveKey(chatroomId) {
+    return KICK_LAST_LIVE_PREFIX + chatroomId;
+  }
+
+  function getKickLastLiveAt(chatroomId) {
+    const v = localStorage.getItem(kickLastLiveKey(chatroomId));
+    return v ? Number(v) : null;
+  }
+
+  function setKickLastLiveAt(chatroomId) {
+    try { localStorage.setItem(kickLastLiveKey(chatroomId), String(Date.now())); } catch (err) { console.error(err); }
+  }
+
+  function formatElapsed(ms) {
+    const s = Math.floor(ms / 1000);
+    if (s < 60) return 'hace instantes';
+    const m = Math.floor(s / 60);
+    if (m < 60) return `hace ${m} min`;
+    const h = Math.floor(m / 60);
+    if (h < 24) return `hace ${h} h`;
+    const d = Math.floor(h / 24);
+    return `hace ${d} d`;
+  }
 
   async function loadKickChannelInfo(username) {
     const head = document.getElementById('kick-channel-head');
@@ -1848,10 +1886,25 @@
       const displayName = data?.user?.username || data?.slug || username;
       const isLive = !!data?.livestream;
       const title = data?.livestream?.session_title || '';
+      const statusEl = document.getElementById('kick-channel-status-text');
+
       document.getElementById('kick-channel-avatar').src = avatar;
       document.getElementById('kick-channel-username').textContent = displayName;
       document.getElementById('kick-channel-live-dot').classList.toggle('live', isLive);
-      document.getElementById('kick-channel-title').textContent = title || (isLive ? '' : 'Sin transmisión en vivo');
+
+      if (isLive) {
+        if (kickCurrentChatroomId) setKickLastLiveAt(kickCurrentChatroomId);
+        statusEl.textContent = 'En directo';
+        statusEl.className = 'kick-channel-status live';
+        document.getElementById('kick-channel-title').textContent = title;
+      } else {
+        statusEl.textContent = 'Offline';
+        statusEl.className = 'kick-channel-status offline';
+        const lastLive = kickCurrentChatroomId ? getKickLastLiveAt(kickCurrentChatroomId) : null;
+        document.getElementById('kick-channel-title').textContent = lastLive
+          ? `Última conexión ${formatElapsed(Date.now() - lastLive)}`
+          : 'Sin datos de la última conexión';
+      }
       head.style.display = 'flex';
     } catch (err) {
       console.error(err);
@@ -1931,7 +1984,10 @@
     kickPausedQueue = [];
     updateKickPauseBtn();
     if (clearPersisted && kickCurrentChatroomId) {
-      try { localStorage.removeItem(kickLogStorageKey(kickCurrentChatroomId)); } catch (err) { console.error(err); }
+      try {
+        localStorage.removeItem(kickLogStorageKey(kickCurrentChatroomId));
+        localStorage.removeItem(kickLastLiveKey(kickCurrentChatroomId));
+      } catch (err) { console.error(err); }
     }
     kickLogEntries = [];
     kickCurrentChatroomId = null;
