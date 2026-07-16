@@ -2273,6 +2273,11 @@
     document.getElementById('youtube-chat-log').innerHTML = '<div class="kick-chat-empty">Conectando al chat…</div>';
     setYoutubeStatus(title ? `En vivo · ${title}` : 'Chat de YouTube en vivo', true);
     pollYoutubeChat();
+    // Si la extension del navegador esta instalada (ver browser-extension/),
+    // esto le avisa que abra sola el chat popout de este video: asi el
+    // streamer no tiene que acordarse de abrirlo el mismo para tener el
+    // tier real de los miembros.
+    window.postMessage({ source: 'yape-alert-panel', type: 'yt-chat-connected', videoId }, window.location.origin);
   }
 
   async function connectYoutubeChat() {
@@ -2559,6 +2564,8 @@
     document.getElementById('youtube-chat-log').innerHTML = '';
     if (manual) document.getElementById('youtube-video-input').value = '';
     updateYoutubeConnectVisibility();
+    // Si la extension abrió sola el chat popout, que lo cierre tambien sola.
+    window.postMessage({ source: 'yape-alert-panel', type: 'yt-chat-disconnected' }, window.location.origin);
   }
   window.disconnectYoutubeChat = disconnectYoutubeChat;
 
