@@ -2876,6 +2876,23 @@
     slots.forEach((slot) => { slot.innerHTML = badgesHtml; });
   }
 
+  // El id de un superchat NO es el mismo segun de donde vino: la extension
+  // (DOM) manda su propio id (ver scraper.js) y la API oficial manda el
+  // suyo, sin relacion entre si. Si el chat pasa de un modo al otro (la
+  // extension se idlea 20s sin mensajes nuevos y el panel vuelve a pollear
+  // la API, ver handleExtensionYoutubeMessage) y la API repite un superchat
+  // reciente (su pageToken puede traer mensajes ya vistos), el
+  // youtube_message_id no coincide con el que ya se guardo por la
+  // extension: el on_conflict de abajo no lo detecta y entra duplicado. Por
+  // eso hay una segunda capa de defensa aca, por contenido (autor+monto+
+  // mensaje) en vez de por id, con una ventana corta de tiempo.
+  const recentSuperchatFingerprints = new Map(); // fingerprint -> timestamp
+  const SUPERCHAT_DEDUPE_WINDOW_MS = 20000;
+
+  function superchatFingerprint(name, amount, message) {
+    return `${name}|${amount}|${message}`;
+  }
+
   // Los superchats entran siempre a la cola de aprobacion (payments,
   // source='youtube'), sin importar si el chat esta en pausa: la pausa solo
   // afecta lo que se pinta en el log, no la cola de aprobacion.
@@ -2883,11 +2900,23 @@
     const author = item.authorDetails || {};
     const type = item.snippet && item.snippet.type;
     const details = (type === 'superChatEvent' ? item.snippet.superChatDetails : item.snippet.superStickerDetails) || {};
+    const name = author.displayName || 'Anónimo';
+    const amount = details.amountDisplayString || '';
+    const message = stripYtEmojiTokens(details.userComment || (item.snippet && item.snippet.displayMessage) || '');
+
+    const now = Date.now();
+    for (const [key, ts] of recentSuperchatFingerprints) {
+      if (now - ts > SUPERCHAT_DEDUPE_WINDOW_MS) recentSuperchatFingerprints.delete(key);
+    }
+    const fp = superchatFingerprint(name, amount, message);
+    if (recentSuperchatFingerprints.has(fp)) return;
+    recentSuperchatFingerprints.set(fp, now);
+
     const row = {
       user_id: uid,
-      name: author.displayName || 'Anónimo',
-      amount: details.amountDisplayString || '',
-      message: stripYtEmojiTokens(details.userComment || (item.snippet && item.snippet.displayMessage) || ''),
+      name,
+      amount,
+      message,
       source: 'youtube',
       status: 'pending',
       youtube_message_id: item.id,
