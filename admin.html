@@ -1619,7 +1619,7 @@
     vip:         { icon: 'vip.png', text: 'VIP', cls: 'vip' },
     og:          { icon: 'og.png', text: 'OG', cls: 'og' },
     founder:     { icon: 'founder.png', text: 'Founder', cls: 'founder' },
-    subscriber:  { icon: 'subscriber.png', text: 'SUB', cls: 'subscriber' },
+    subscriber:  { icon: 'subscriber.svg', text: 'SUB', cls: 'subscriber' },
     sub_gifter:  { icon: 'sub_gifter.png', text: 'Gifter', cls: 'gifter' },
     verified:    { icon: 'verified.png', text: '✓', cls: 'verified' },
     staff:       { text: 'Staff', cls: 'staff' },
@@ -1967,10 +1967,6 @@
       if (msg.event === 'App\\Events\\ChatMessageEvent') {
         let payload;
         try { payload = JSON.parse(msg.data); } catch { return; }
-        // Log temporal para diagnosticar por que no aparece la insignia de
-        // sub: se ve el arreglo de insignias tal cual lo manda Kick para
-        // cada mensaje. Sacar una vez identificado el problema.
-        console.log('[Kick debug]', payload.sender?.username, 'badges:', payload.sender?.identity?.badges);
         if (kickPaused) {
           kickPausedQueue.push(payload);
           updateKickPauseBtn();
