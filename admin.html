@@ -16,6 +16,11 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Nunito:ital,wght@0,400;0,600;0,700;0,800;0,900&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<!-- Windows no tiene fuente con emoji de bandera reales (Chrome ahi los
+     muestra como "AR"/"PR" en un cuadradito en vez de la banderita): se
+     reemplazan por imagenes de verdad con Twemoji en vez de depender de la
+     fuente del sistema operativo. -->
+<script src="https://cdn.jsdelivr.net/npm/twemoji@14.0.2/dist/twemoji.min.js"></script>
 <style>
   :root {
     --purple: #6E2D8F;
@@ -644,6 +649,9 @@
   }
   .kick-msg .kick-user { font-weight: 900; color: var(--purple); }
   .kick-chat-empty { color: var(--ink-mute); font-size: 13.5px; font-weight: 700; padding: 6px 2px; }
+  /* Imagen real de Twemoji para banderas/emoji (Windows no las dibuja bien
+     con la fuente del sistema, ver script de twemoji en el head). */
+  img.emoji { height: 1em; width: 1em; margin: 0 .05em 0 .1em; vertical-align: -0.1em; }
   .kick-emote { height: 22px; width: auto; vertical-align: middle; margin: 0 1px; }
   .kick-badge-icon {
     display: inline-block;
@@ -1720,8 +1728,44 @@
   }
   window.setTab = setTab;
 
+  // Solo puede haber UNA cosa mostrada en el overlay a la vez, pero viven en
+  // dos sistemas separados que no se enteraban entre si: un pago aprobado
+  // (payments.on_overlay, ver approve_payment) y un mensaje de chat
+  // resaltado (broadcast aparte kick-msg/yt-msg, ver toggleKickHighlight/
+  // toggleYoutubeHighlight). Aprobar un pago sin esto dejaba el chat
+  // resaltado marcado como activo en el panel aunque el overlay ya hubiera
+  // cambiado a mostrar el pago. Se llama antes de aprobar/mostrar un pago,
+  // para que activar uno apague al otro (en los dos sentidos: ver tambien
+  // clearOverlayPayment, que llaman toggleKickHighlight/toggleYoutubeHighlight).
+  async function clearChatHighlights() {
+    if (kickHighlightedMsgId) {
+      const ch = ensureKickOverlayChannel();
+      if (ch) await ch.send({ type: 'broadcast', event: 'kick-msg', payload: { clear: true } });
+      if (kickHighlightedEl) kickHighlightedEl.classList.remove('kick-msg-active');
+      kickHighlightedEl = null;
+      kickHighlightedMsgId = null;
+    }
+    if (ytHighlightedMsgId) {
+      const ch = ensureYtOverlayChannel();
+      if (ch) await ch.send({ type: 'broadcast', event: 'yt-msg', payload: { clear: true } });
+      if (ytHighlightedEl) ytHighlightedEl.classList.remove('kick-msg-active');
+      ytHighlightedEl = null;
+      ytHighlightedMsgId = null;
+    }
+  }
+
+  // La otra mitad de clearChatHighlights: apaga el pago que estuviera en el
+  // overlay cuando se resalta un mensaje de chat nuevo.
+  async function clearOverlayPayment() {
+    const live = Array.from(paymentsById.values()).find((p) => p.onOverlay);
+    if (!live) return;
+    const { error } = await sb.from('payments').update({ on_overlay: false }).eq('id', live.id);
+    if (error) console.error(error);
+  }
+
   async function act(id, action) {
     if (action === 'approve') {
+      await clearChatHighlights();
       const { error } = await sb.rpc('approve_payment', { target_id: id });
       if (error) { toast('No se pudo aprobar'); console.error(error); return; }
       toast('¡Aprobado! Ya sale en el overlay 🎉');
@@ -1787,7 +1831,9 @@
 
   function handleRealtimeChange(payload) {
     if (payload.eventType === 'INSERT') {
-      toast(`Nuevo yape de ${payload.new.name || 'alguien'} 💜`);
+      const who = payload.new.name || 'alguien';
+      const label = payload.new.source === 'youtube' ? `Nuevo superchat de ${who} 💛` : `Nuevo yape de ${who} 💜`;
+      toast(label);
       renderRow(mapRow(payload.new), { animate: true, flash: true });
     } else if (payload.eventType === 'UPDATE') {
       renderRow(mapRow(payload.new));
@@ -1954,6 +2000,7 @@
     el.classList.add('kick-msg-active');
     kickHighlightedEl = el;
     kickHighlightedMsgId = msgId;
+    await clearOverlayPayment();
 
     const avatar = await resolveKickAvatar(payload.sender?.slug || payload.sender?.username);
     // Si en el medio se clickeo otro mensaje, no pisar ese highlight mas nuevo.
@@ -1998,6 +2045,7 @@
     div.className = 'kick-msg';
     div.title = 'Click para mostrar este mensaje en el overlay';
     div.innerHTML = `<span class="kick-who"><span class="kick-msg-time">${escapeHtml(formatKickTime(payload))}</span><span class="kick-user"${color ? ` style="color:${escapeHtml(color)}"` : ''}>${escapeHtml(username)}:</span>${renderKickBadges(payload.sender?.identity?.badges)}</span> ${renderKickContent(payload.content)}`;
+    if (window.twemoji) twemoji.parse(div);
     div.addEventListener('click', () => toggleKickHighlight(payload, div));
     log.appendChild(div);
     while (log.children.length > KICK_LOG_MAX) log.removeChild(log.firstChild);
@@ -2681,6 +2729,7 @@
     // actualiza solo apenas llega el dato real de la extension, en vez de
     // quedarse pegado con el chip de texto hasta el proximo mensaje nuevo.
     div.innerHTML = `<span class="kick-who"><span class="kick-msg-time">${escapeHtml(ytMessageTime(item))}</span><span class="kick-user">${escapeHtml(author.displayName || '?')}:</span><span class="yt-badges-slot" data-yt-author="${escapeHtml(author.displayName || '')}">${badgesHtml}</span>${superchatTag}${milestoneTag}</span> ${renderYoutubeContent((item.snippet && item.snippet.displayMessage) || '')}`;
+    if (window.twemoji) twemoji.parse(div);
     // Un superchat ya entro solo a la cola de payments (insertYoutubeSuperchat,
     // ver handleYoutubeMessage): clickearlo en el log hace exactamente lo
     // mismo que apretar "Aprobar" en la pestaña YouTube del panel, en vez de
@@ -2688,8 +2737,11 @@
     div.addEventListener('click', () => {
       if (isSuperchat) {
         const paymentId = paymentIdByYoutubeMsgId.get(item.id);
-        if (paymentId) act(paymentId, 'approve');
-        else toast('Todavía se está guardando este superchat, esperá un segundo');
+        if (!paymentId) { toast('Todavía se está guardando este superchat, esperá un segundo'); return; }
+        // Toggle: si ya esta en el overlay, un segundo click lo saca (como
+        // "Quitar del overlay" en el panel); si no, lo aprueba y lo muestra.
+        const p = paymentsById.get(paymentId);
+        act(paymentId, (p && p.onOverlay) ? 'dismiss' : 'approve');
         return;
       }
       toggleYoutubeHighlight(item, div);
@@ -2757,6 +2809,7 @@
     el.classList.add('kick-msg-active');
     ytHighlightedEl = el;
     ytHighlightedMsgId = msgId;
+    await clearOverlayPayment();
     const author = item.authorDetails || {};
     // Los iconos de mod/verificado (mask-image, ver browser-extension/) son
     // un data:image/svg+xml pesado que rompia el broadcast entero en

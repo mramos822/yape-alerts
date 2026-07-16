@@ -4,6 +4,11 @@
 <meta charset="utf-8">
 <title>Yape Superchat Overlay</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<!-- Windows no tiene fuente con emoji de bandera reales (Chrome ahi los
+     muestra como "AR"/"PR" en un cuadradito en vez de la banderita): se
+     reemplazan por imagenes de verdad con Twemoji en vez de depender de la
+     fuente del sistema operativo. -->
+<script src="https://cdn.jsdelivr.net/npm/twemoji@14.0.2/dist/twemoji.min.js"></script>
 <style>
   :root {
     --author-avatar-size: 70px;
@@ -127,6 +132,15 @@
   .text em {
     font-weight: 400;
     opacity: 0.75;
+  }
+
+  /* Imagen real de Twemoji para banderas/emoji (Windows no las dibuja bien
+     con la fuente del sistema, ver script de twemoji en el head). */
+  img.emoji {
+    height: 1em;
+    width: 1em;
+    margin: 0 .05em 0 .1em;
+    vertical-align: -0.1em;
   }
 
   .kick-emote {
@@ -567,9 +581,12 @@
   // moneda y clasifica el monto contra los tramos de ESA moneda.
   function ytTierColor(amountText) {
     const code = detectYoutubeCurrency(amountText);
-    // Los soles ya tienen una escala probada a mano (tierColor de arriba):
-    // no hace falta aproximarla con tasa de cambio + redondeo.
-    if (code === 'PEN') return tierColor(parseYoutubeAmount(amountText));
+    // Los soles y los dolares ya tienen una escala probada a mano
+    // (tierColor de arriba, con el limite en X.99 no en X.00: un superchat
+    // de USD 9.99 ya es amarillo, no verde, porque ese es el precio real
+    // de venta que abre el tramo de arriba, confirmado a mano). No hace
+    // falta aproximarla con numeros redondos.
+    if (code === 'PEN' || code === 'USD') return tierColor(parseYoutubeAmount(amountText));
     const amount = parseYoutubeAmount(amountText);
     const knownTiers = YT_KNOWN_TIERS[code];
     let color = YT_TIER_COLORS[0];
@@ -665,6 +682,7 @@
         <div class="text">${textLine}</div>
       </div>
     `;
+    if (window.twemoji) twemoji.parse(el);
     el._sig = sig || JSON.stringify(payment);
     stack.appendChild(el);
     cardsById.set(payment.id, el);
