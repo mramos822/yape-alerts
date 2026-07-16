@@ -2540,10 +2540,22 @@
   // no dice cuantos meses lleva. Sin la extension (o mientras no mando
   // nada todavia), devuelve null y el que llama cae al chip de texto de
   // renderYtBadges.
+  // Algunas insignias de YouTube no son un <img> propio, sino un recorte de
+  // una hoja de sprites via CSS background-image + background-position (ver
+  // scraper.js): en ese caso hay que armar un <span> con esos mismos
+  // estilos, si no se ve la hoja entera en vez de un icono solo.
+  function renderOneYtBadge(b) {
+    if (b.bgPosition) {
+      const style = `width:16px;height:16px;display:inline-block;vertical-align:middle;margin-right:2px;background-image:url('${escapeHtml(b.src)}');background-position:${escapeHtml(b.bgPosition)};background-size:${escapeHtml(b.bgSize)};background-repeat:no-repeat;`;
+      return `<span class="yt-badge-icon" style="${style}" title="${escapeHtml(b.alt || '')}"></span>`;
+    }
+    return `<img class="yt-badge-icon" src="${escapeHtml(b.src)}" alt="${escapeHtml(b.alt || '')}" title="${escapeHtml(b.alt || '')}">`;
+  }
+
   function renderYtBadgeIcons(author) {
     const images = author.badgeImages || [];
     if (!images.length) return null;
-    let html = images.map((b) => `<img class="yt-badge-icon" src="${escapeHtml(b.src)}" alt="${escapeHtml(b.alt || '')}" title="${escapeHtml(b.alt || '')}">`).join('');
+    let html = images.map(renderOneYtBadge).join('');
     if (author.isChatSponsor) {
       const cached = ytTierCache.get(author.displayName);
       if (cached && cached.tier) {

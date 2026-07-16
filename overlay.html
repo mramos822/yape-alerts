@@ -327,7 +327,13 @@
   // al chip de color de mas abajo.
   function renderYtBadgeImages(badgeImages) {
     if (!Array.isArray(badgeImages) || !badgeImages.length) return '';
-    return badgeImages.map((b) => `<img class="kick-badge-icon" src="${escapeHtml(b.src)}" alt="${escapeHtml(b.alt || '')}" title="${escapeHtml(b.alt || '')}">`).join('');
+    return badgeImages.map((b) => {
+      if (b.bgPosition) {
+        const style = `background-image:url('${escapeHtml(b.src)}');background-position:${escapeHtml(b.bgPosition)};background-size:${escapeHtml(b.bgSize)};background-repeat:no-repeat;`;
+        return `<span class="kick-badge-icon" style="${style}" title="${escapeHtml(b.alt || '')}"></span>`;
+      }
+      return `<img class="kick-badge-icon" src="${escapeHtml(b.src)}" alt="${escapeHtml(b.alt || '')}" title="${escapeHtml(b.alt || '')}">`;
+    }).join('');
   }
 
   function renderYtBadges(badges) {
