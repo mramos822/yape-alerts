@@ -9,8 +9,10 @@
     --author-avatar-size: 70px;
     --author-avatar-border-size: 3px;
     --author-avatar-border-color: #20E7B9;
-    --author-bg-color: #20E7B9;
-    --author-color: #06251f;
+    --name-bg-color: #20E7B9;
+    --name-color: #06251f;
+    --message-bg-color: #20E7B9;
+    --message-color: #06251f;
     --author-font-size: 15px;
     --author-font-weight: 700;
 
@@ -61,7 +63,7 @@
     left: 40px;
     max-width: 760px;
     min-width: 80px;
-    background: var(--author-bg-color);
+    background: var(--message-bg-color);
     padding: 12px 20px 12px 56px;
   }
 
@@ -96,7 +98,7 @@
     height: 100%;
     border-radius: 50%;
     background: #06251f;
-    color: var(--author-bg-color);
+    color: var(--name-bg-color);
     font-weight: 900;
     font-size: 30px;
   }
@@ -106,8 +108,8 @@
     top: -30px;
     left: 20px;
     font-weight: var(--author-font-weight);
-    background: var(--author-bg-color);
-    color: var(--author-color);
+    background: var(--name-bg-color);
+    color: var(--name-color);
     padding: 8px 14px;
     z-index: 2;
     font-size: var(--author-font-size);
@@ -115,7 +117,7 @@
   }
 
   .text {
-    color: var(--author-color);
+    color: var(--message-color);
     font-weight: 700;
     font-size: 17px;
     line-height: 1.35;
@@ -286,16 +288,21 @@
 
     const name = payment.name || 'Alguien';
     const isKick = payment.source === 'kick';
-    const color = isKick ? '#53FC18' : tierColor(payment.amount);
+    const nameColor = isKick ? '#FFA606' : tierColor(payment.amount);
+    const messageColor = isKick ? '#222222' : nameColor;
     const el = document.createElement('div');
     el.className = 'superchat';
-    el.style.setProperty('--author-bg-color', color);
-    el.style.setProperty('--author-avatar-border-color', color);
+    el.style.setProperty('--name-bg-color', nameColor);
+    el.style.setProperty('--message-bg-color', messageColor);
+    el.style.setProperty('--message-color', isKick ? '#F2F2F2' : '#06251f');
+    el.style.setProperty('--author-avatar-border-color', nameColor);
     const avatar = isKick
       ? `<div class="hl-initial">${escapeHtml(name.trim().charAt(0).toUpperCase() || '?')}</div>`
       : yapeLogoSvg;
+    // El "panelito" de monto es solo para yapes: un mensaje de chat de Kick
+    // no tiene donation ribbon.
     const donation = isKick
-      ? `<div class="donation"><div class="donation-title">KICK</div></div>`
+      ? ''
       : `<div class="donation"><div class="donation-title">YAPE</div><div class="donation-subtitle">S/. ${payment.amount || '0.00'}</div></div>`;
     el.innerHTML = `
       <div class="hl-message">
