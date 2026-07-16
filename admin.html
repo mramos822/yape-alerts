@@ -2372,6 +2372,19 @@
   const YT_BADGE_LABEL = { owner: 'STREAMER', moderator: 'MOD', member: 'MIEMBRO', verified: '✓' };
   const YT_BADGE_CLASS = { owner: 'broadcaster', moderator: 'moderator', member: 'subscriber', verified: 'verified' };
 
+  // La extension opcional del navegador (ver browser-extension/) lee el
+  // tier real de un miembro directo del DOM del chat de YouTube (la API
+  // oficial no lo manda en un mensaje normal) y lo manda por postMessage,
+  // emparejado por nombre de autor. Sin la extension instalada este Map
+  // queda vacio y el badge de miembro se ve generico, como antes.
+  const ytTierCache = new Map();
+  window.addEventListener('message', (event) => {
+    if (event.source !== window) return;
+    const data = event.data;
+    if (!data || data.source !== 'yape-alert-ext' || !data.name) return;
+    ytTierCache.set(data.name, data);
+  });
+
   function ytBadgesFor(author) {
     const badges = [];
     if (author.isChatOwner) badges.push('owner');
@@ -2381,8 +2394,16 @@
     return badges;
   }
 
-  function renderYtBadges(badges) {
-    return (badges || []).map((b) => `<span class="kick-badge kick-badge-${YT_BADGE_CLASS[b] || 'other'}">${YT_BADGE_LABEL[b] || b}</span>`).join('');
+  function renderYtBadges(badges, authorName) {
+    return (badges || []).map((b) => {
+      if (b === 'member') {
+        const cached = authorName && ytTierCache.get(authorName);
+        if (cached && cached.tier) {
+          return `<span class="kick-badge kick-badge-subscriber" title="Tier real via extension del navegador">${escapeHtml(cached.tier)}</span>`;
+        }
+      }
+      return `<span class="kick-badge kick-badge-${YT_BADGE_CLASS[b] || 'other'}">${YT_BADGE_LABEL[b] || b}</span>`;
+    }).join('');
   }
 
   // El tier/nivel de un miembro NO viene en un mensaje normal de chat (la
@@ -2424,7 +2445,7 @@
     div.title = 'Click para mostrar este mensaje en el overlay';
     const superchatTag = isSuperchat ? '<span class="kick-badge kick-badge-gifter">SUPERCHAT</span>' : '';
     const milestoneTag = ytMilestoneTag(item);
-    div.innerHTML = `<span class="kick-who"><span class="kick-msg-time">${escapeHtml(ytMessageTime(item))}</span>${renderYtBadges(ytBadgesFor(author))}${superchatTag}${milestoneTag}<span class="kick-user">${escapeHtml(author.displayName || '?')}:</span></span> ${escapeHtml((item.snippet && item.snippet.displayMessage) || '')}`;
+    div.innerHTML = `<span class="kick-who"><span class="kick-msg-time">${escapeHtml(ytMessageTime(item))}</span>${renderYtBadges(ytBadgesFor(author), author.displayName)}${superchatTag}${milestoneTag}<span class="kick-user">${escapeHtml(author.displayName || '?')}:</span></span> ${escapeHtml((item.snippet && item.snippet.displayMessage) || '')}`;
     div.addEventListener('click', () => toggleYoutubeHighlight(item, div));
     log.appendChild(div);
     while (log.children.length > KICK_LOG_MAX) log.removeChild(log.firstChild);
