@@ -2599,7 +2599,15 @@
 
   function startYoutubeChannelHeadTimer() {
     clearInterval(ytChannelHeadTimer);
-    ytChannelHeadTimer = setInterval(refreshYoutubeChannelHead, 60000);
+    // Cada 5s en vez de cada 60s: no cuesta cuota nueva (fetchYoutubeChannelInfo
+    // ya esta cacheado, esto solo vuelve a pintar con lo que el panel ya
+    // sabe), asi que no hay motivo para que la etiqueta de en vivo/offline/
+    // ultima conexion se sienta atrasada. Lo que SI sigue tardando hasta 5
+    // min es DETECTAR que arranco un directo nuevo sin haberlo conectado
+    // todavia (eso si cuesta cuota real, ver checkYoutubeChannelLive) -- una
+    // vez conectado (a mano o solo), el estado "en directo" se pinta al
+    // instante, no espera a este timer.
+    ytChannelHeadTimer = setInterval(refreshYoutubeChannelHead, 5000);
   }
 
   // Insignias como chips de texto (no hay un sheet de iconos de YouTube
