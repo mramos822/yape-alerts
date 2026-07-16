@@ -627,6 +627,13 @@
     background-repeat: no-repeat;
     background-position: center;
   }
+  .yt-badge-icon {
+    display: inline-block;
+    height: 16px; width: 16px;
+    vertical-align: middle;
+    margin-right: 2px;
+    flex-shrink: 0;
+  }
   .kick-badge {
     display: inline-block;
     font-size: 9.5px;
@@ -2428,6 +2435,7 @@
         isChatModerator: !!data.isMod,
         isChatSponsor: !!data.isMember,
         isVerified: !!data.isVerified,
+        badgeImages: data.badgeImages || [],
       },
     };
   }
@@ -2472,6 +2480,26 @@
       }
       return `<span class="kick-badge kick-badge-${YT_BADGE_CLASS[b] || 'other'}">${YT_BADGE_LABEL[b] || b}</span>`;
     }).join('');
+  }
+
+  // Cuando la extension esta activa, trae el icono REAL de cada insignia
+  // (la estrellita de miembro, la llave de mod, el tilde de verificado tal
+  // cual los muestra YouTube) en vez de tener que armar un chip de texto
+  // propio. Se le suma el tier real como chip aparte porque el icono solo
+  // no dice cuantos meses lleva. Sin la extension (o mientras no mando
+  // nada todavia), devuelve null y el que llama cae al chip de texto de
+  // renderYtBadges.
+  function renderYtBadgeIcons(author) {
+    const images = author.badgeImages || [];
+    if (!images.length) return null;
+    let html = images.map((b) => `<img class="yt-badge-icon" src="${escapeHtml(b.src)}" alt="${escapeHtml(b.alt || '')}" title="${escapeHtml(b.alt || '')}">`).join('');
+    if (author.isChatSponsor) {
+      const cached = ytTierCache.get(author.displayName);
+      if (cached && cached.tier) {
+        html += `<span class="kick-badge kick-badge-subscriber" title="Tier real via extension del navegador">${escapeHtml(cached.tier)}</span>`;
+      }
+    }
+    return html;
   }
 
   // El tier/nivel de un miembro NO viene en un mensaje normal de chat (la
@@ -2537,7 +2565,8 @@
     div.title = 'Click para mostrar este mensaje en el overlay';
     const superchatTag = isSuperchat ? '<span class="kick-badge kick-badge-yt-superchat">SUPERCHAT</span>' : '';
     const milestoneTag = ytMilestoneTag(item);
-    div.innerHTML = `<span class="kick-who"><span class="kick-msg-time">${escapeHtml(ytMessageTime(item))}</span>${renderYtBadges(ytBadgesFor(author), author.displayName)}${superchatTag}${milestoneTag}<span class="kick-user">${escapeHtml(author.displayName || '?')}:</span></span> ${renderYoutubeContent((item.snippet && item.snippet.displayMessage) || '')}`;
+    const badgesHtml = renderYtBadgeIcons(author) ?? renderYtBadges(ytBadgesFor(author), author.displayName);
+    div.innerHTML = `<span class="kick-who"><span class="kick-msg-time">${escapeHtml(ytMessageTime(item))}</span>${badgesHtml}${superchatTag}${milestoneTag}<span class="kick-user">${escapeHtml(author.displayName || '?')}:</span></span> ${renderYoutubeContent((item.snippet && item.snippet.displayMessage) || '')}`;
     div.addEventListener('click', () => toggleYoutubeHighlight(item, div));
     log.appendChild(div);
     while (log.children.length > KICK_LOG_MAX) log.removeChild(log.firstChild);
@@ -2596,6 +2625,7 @@
         name: author.displayName || 'Alguien',
         content: (item.snippet && item.snippet.displayMessage) || '',
         badges: ytBadgesFor(author),
+        badgeImages: author.badgeImages || [],
         avatar: author.profileImageUrl || '',
       },
     });
