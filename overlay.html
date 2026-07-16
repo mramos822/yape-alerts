@@ -276,13 +276,26 @@
     verified:    { icon: 'verified.png', text: '✓' },
   };
 
+  // Kick a veces manda el tipo con mayusculas/guiones distintos, y el de
+  // suscriptor a veces viene como "sub"/"subscription" en vez de
+  // "subscriber": se normaliza antes de buscar en KICK_BADGES (mismo
+  // criterio que admin.html) para no perder el icono por un detalle asi.
+  function lookupKickBadge(rawType) {
+    const key = String(rawType || '').toLowerCase().trim().replace(/[\s-]+/g, '_');
+    if (KICK_BADGES[key]) return KICK_BADGES[key];
+    if (/^sub(scri(ber|ption))?$/.test(key)) return KICK_BADGES.subscriber;
+    return null;
+  }
+
   function renderKickBadges(badges) {
     if (!Array.isArray(badges) || !badges.length) return '';
     return badges.map((b) => {
-      const info = KICK_BADGES[b.type];
-      if (!info) return '';
-      const title = escapeHtml(b.text || b.type || '');
-      return `<span class="kick-badge-icon" style="background-image:url('kick-badges/${info.icon}')" title="${title}"></span>`;
+      const rawType = b.type || b.badge_type || b.name || '';
+      const info = lookupKickBadge(rawType);
+      const title = escapeHtml(b.text || rawType || '');
+      if (info) return `<span class="kick-badge-icon" style="background-image:url('kick-badges/${info.icon}')" title="${title}"></span>`;
+      const fallbackText = (b.text || rawType || '?').slice(0, 4).toUpperCase();
+      return `<span class="kick-badge-icon" style="background:#6E2D8F;color:#fff;font-size:9px;font-weight:800;display:inline-flex;align-items:center;justify-content:center;" title="${title}">${escapeHtml(fallbackText)}</span>`;
     }).join('');
   }
 

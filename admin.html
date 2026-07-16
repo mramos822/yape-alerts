@@ -1625,13 +1625,28 @@
     staff:       { text: 'Staff', cls: 'staff' },
   };
 
+  // Kick a veces manda el tipo con mayusculas/guiones distintos (p.ej.
+  // "Subscriber" en vez de "subscriber"), y el de suscriptor a veces viene
+  // como "sub"/"subscription" en lugar de "subscriber": se normaliza antes
+  // de buscar en KICK_BADGES para no perder el icono por un detalle asi.
+  function lookupKickBadge(rawType) {
+    const key = String(rawType || '').toLowerCase().trim().replace(/[\s-]+/g, '_');
+    if (KICK_BADGES[key]) return KICK_BADGES[key];
+    if (/^sub(scri(ber|ption))?$/.test(key)) return KICK_BADGES.subscriber;
+    return null;
+  }
+
   function renderKickBadges(badges) {
     if (!Array.isArray(badges) || !badges.length) return '';
     return badges.map((b) => {
-      const info = KICK_BADGES[b.type] || { text: (b.text || b.type || '?').slice(0, 4).toUpperCase(), cls: 'other' };
-      const title = escapeHtml(b.text || b.type || '');
-      if (info.icon) return `<span class="kick-badge-icon" style="background-image:url('kick-badges/${info.icon}')" title="${title}"></span>`;
-      return `<span class="kick-badge kick-badge-${info.cls}" title="${title}">${info.text}</span>`;
+      const rawType = b.type || b.badge_type || b.name || '';
+      const info = lookupKickBadge(rawType);
+      if (!info) console.warn('[Kick] insignia no reconocida, revisa el objeto:', b);
+      const fallback = { text: (b.text || rawType || '?').slice(0, 4).toUpperCase(), cls: 'other' };
+      const final = info || fallback;
+      const title = escapeHtml(b.text || rawType || '');
+      if (final.icon) return `<span class="kick-badge-icon" style="background-image:url('kick-badges/${final.icon}')" title="${title}"></span>`;
+      return `<span class="kick-badge kick-badge-${final.cls}" title="${title}">${final.text}</span>`;
     }).join('');
   }
 
