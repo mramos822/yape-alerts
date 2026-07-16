@@ -520,6 +520,28 @@
   .kick-msg { font-size: 13.5px; font-weight: 600; color: var(--ink); line-height: 1.4; }
   .kick-msg .kick-user { font-weight: 900; color: var(--purple); }
   .kick-chat-empty { color: var(--ink-mute); font-size: 13.5px; font-weight: 700; padding: 6px 2px; }
+  .kick-emote { height: 22px; width: auto; vertical-align: middle; margin: 0 1px; }
+  .kick-badge {
+    display: inline-block;
+    font-size: 9.5px;
+    font-weight: 900;
+    letter-spacing: .02em;
+    color: #fff;
+    border-radius: 5px;
+    padding: 2px 5px;
+    margin-right: 4px;
+    vertical-align: middle;
+    background: var(--ink-mute);
+  }
+  .kick-badge-broadcaster { background: linear-gradient(120deg, #E5484D, #C33338); }
+  .kick-badge-moderator { background: linear-gradient(120deg, #14C6A4, #0E9A80); }
+  .kick-badge-vip { background: linear-gradient(120deg, #E540C0, #B92E9C); }
+  .kick-badge-og { background: linear-gradient(120deg, #6E2D8F, #4E1E68); }
+  .kick-badge-founder { background: linear-gradient(120deg, #F0A020, #C57E10); }
+  .kick-badge-subscriber { background: linear-gradient(120deg, #6E2D8F, #8B34A8); }
+  .kick-badge-gifter { background: linear-gradient(120deg, #F0A020, #E48A12); }
+  .kick-badge-staff { background: linear-gradient(120deg, #2C1B36, #4E1E68); }
+  .kick-badge-verified { background: linear-gradient(120deg, #14C6A4, #20E7B9); }
 
   /* ---------- Toast ---------- */
   .toast {
@@ -1472,13 +1494,50 @@
     document.getElementById('kick-chat-dot').classList.toggle('live', !!live);
   }
 
-  function addKickMessage(username, content) {
+  // Insignias que manda Kick en sender.identity.badges: no hay endpoint
+  // publico con los iconos reales, asi que se dibujan como chips propios.
+  const KICK_BADGES = {
+    broadcaster: { text: 'Streamer', cls: 'broadcaster' },
+    moderator:   { text: 'MOD', cls: 'moderator' },
+    vip:         { text: 'VIP', cls: 'vip' },
+    og:          { text: 'OG', cls: 'og' },
+    founder:     { text: 'Founder', cls: 'founder' },
+    subscriber:  { text: 'SUB', cls: 'subscriber' },
+    sub_gifter:  { text: 'Gifter', cls: 'gifter' },
+    staff:       { text: 'Staff', cls: 'staff' },
+    verified:    { text: '✓', cls: 'verified' },
+  };
+
+  function renderKickBadges(badges) {
+    if (!Array.isArray(badges) || !badges.length) return '';
+    return badges.map((b) => {
+      const info = KICK_BADGES[b.type] || { text: (b.text || b.type || '?').slice(0, 4).toUpperCase(), cls: 'other' };
+      return `<span class="kick-badge kick-badge-${info.cls}" title="${escapeHtml(b.text || b.type || '')}">${info.text}</span>`;
+    }).join('');
+  }
+
+  // El contenido trae los emotes inline como "[emote:12345:Nombre]"; se
+  // reemplazan por la imagen real (CDN publico de Kick, no necesita CORS
+  // porque es un <img>, no un fetch) y el resto del texto se escapa normal.
+  function renderKickContent(content) {
+    return String(content || '').split(/(\[emote:\d+:[^\]]*\])/g).map((part) => {
+      const m = part.match(/^\[emote:(\d+):([^\]]*)\]$/);
+      if (!m) return escapeHtml(part);
+      const [, id, name] = m;
+      return `<img class="kick-emote" src="https://files.kick.com/emotes/${id}/fullsize" alt="${escapeHtml(name)}" title="${escapeHtml(name)}" loading="lazy">`;
+    }).join('');
+  }
+
+  function addKickMessage(payload) {
     const log = document.getElementById('kick-chat-log');
     const empty = log.querySelector('.kick-chat-empty');
     if (empty) empty.remove();
+    const username = payload.sender?.username || '?';
+    const rawColor = payload.sender?.identity?.color || '';
+    const color = /^#[0-9a-fA-F]{3,8}$/.test(rawColor) ? rawColor : '';
     const div = document.createElement('div');
     div.className = 'kick-msg';
-    div.innerHTML = `<span class="kick-user">${escapeHtml(username)}:</span> ${escapeHtml(content)}`;
+    div.innerHTML = `${renderKickBadges(payload.sender?.identity?.badges)}<span class="kick-user"${color ? ` style="color:${escapeHtml(color)}"` : ''}>${escapeHtml(username)}:</span> ${renderKickContent(payload.content)}`;
     log.appendChild(div);
     while (log.children.length > KICK_LOG_MAX) log.removeChild(log.firstChild);
     log.scrollTop = log.scrollHeight;
@@ -1513,7 +1572,7 @@
       if (msg.event === 'App\\Events\\ChatMessageEvent') {
         let payload;
         try { payload = JSON.parse(msg.data); } catch { return; }
-        addKickMessage(payload.sender?.username || '?', payload.content || '');
+        addKickMessage(payload);
       }
     };
 
