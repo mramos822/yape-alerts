@@ -938,6 +938,14 @@
         <button id="youtube-keys-save" onclick="saveYoutubeKeys()">Guardar</button>
         <div class="hint" id="youtube-keys-hint">Pega ahí una o más API keys de Google Cloud (YouTube Data API v3). Si pegás varias, el panel rota automáticamente a la siguiente si una se queda sin cuota diaria.</div>
       </div>
+      <div class="link-block">
+        <div class="lbl">Canal de YouTube (opcional)</div>
+        <div class="link-row">
+          <input id="youtube-channel-input" type="text" placeholder="tu @handle de YouTube">
+          <button id="youtube-channel-save" onclick="saveYoutubeChannel()">Guardar</button>
+        </div>
+        <div class="hint" id="youtube-channel-hint">Escribe tu @handle de YouTube (necesitas al menos una API key guardada arriba) para que el panel detecte solo cuando arrancás un directo, sin tener que pegar el link cada vez.</div>
+      </div>
       <button class="modal-close" onclick="closeLinks()">Cerrar</button>
     </div>
   </div>
@@ -1178,6 +1186,7 @@
     connect();
     if (account && account.kick_chatroom_id) connectKickChat(account.kick_chatroom_id);
     updateYoutubeConnectVisibility();
+    if (account && account.youtube_channel_id) startYoutubeChannelWatcher();
   }
 
   // ---------- Estado de los celulares (latido de la app Android) ----------
@@ -1276,6 +1285,7 @@
     document.getElementById('link-code').textContent = account.ingest_code;
     document.getElementById('kick-username-input').value = account.kick_username || '';
     document.getElementById('youtube-keys-input').value = (account.youtube_api_keys || []).join('\n');
+    document.getElementById('youtube-channel-input').value = account.youtube_channel_handle || '';
     document.getElementById('links-modal').classList.add('open');
   }
   window.openLinks = openLinks;
@@ -1351,6 +1361,53 @@
     if (!keys.length) disconnectYoutubeChat(true);
   }
   window.saveYoutubeKeys = saveYoutubeKeys;
+
+  // Resuelve el @handle al channel_id real (una sola vez) para poder despues
+  // preguntarle a la API "¿este canal esta en vivo ahora?" sin depender de
+  // que el streamer pegue el link del video cada directo (ver
+  // startYoutubeChannelWatcher).
+  async function saveYoutubeChannel() {
+    const handle = document.getElementById('youtube-channel-input').value.trim().replace(/^@?/, '@');
+    const btn = document.getElementById('youtube-channel-save');
+    const hint = document.getElementById('youtube-channel-hint');
+
+    if (!handle || handle === '@') {
+      const { error } = await sb.from('accounts').update({ youtube_channel_handle: null, youtube_channel_id: null }).eq('user_id', uid);
+      if (error) { toast('No se pudo guardar'); console.error(error); return; }
+      account.youtube_channel_handle = null;
+      account.youtube_channel_id = null;
+      toast('Detección automática de YouTube desactivada');
+      stopYoutubeChannelWatcher();
+      return;
+    }
+    if (!account.youtube_api_keys || !account.youtube_api_keys.length) {
+      hint.textContent = 'Primero guarda al menos una API key de YouTube (arriba).';
+      toast('Falta una API key de YouTube');
+      return;
+    }
+
+    btn.disabled = true;
+    hint.textContent = 'Buscando tu canal…';
+    try {
+      const data = await callYoutubeApi('channels', { part: 'id', forHandle: handle });
+      const channelId = data.items && data.items[0] && data.items[0].id;
+      if (!channelId) throw new Error('sin_canal');
+      const { error } = await sb.from('accounts').update({ youtube_channel_handle: handle, youtube_channel_id: channelId }).eq('user_id', uid);
+      if (error) { toast('No se pudo guardar'); console.error(error); return; }
+      account.youtube_channel_handle = handle;
+      account.youtube_channel_id = channelId;
+      hint.textContent = 'Escribe tu @handle de YouTube (necesitas al menos una API key guardada arriba) para que el panel detecte solo cuando arrancás un directo, sin tener que pegar el link cada vez.';
+      toast('Canal de YouTube conectado');
+      startYoutubeChannelWatcher();
+    } catch (err) {
+      console.error(err);
+      hint.textContent = 'No se pudo encontrar ese canal (revisa el @handle o las API keys).';
+      toast('No se pudo resolver el canal de YouTube');
+    } finally {
+      btn.disabled = false;
+    }
+  }
+  window.saveYoutubeChannel = saveYoutubeChannel;
 
   function closeLinks() {
     document.getElementById('links-modal').classList.remove('open');
@@ -2179,7 +2236,9 @@
         ytKeyIndex = (ytKeyIndex + 1) % keys.length;
         continue;
       }
-      throw new Error(body?.error?.message || ('http_' + res.status));
+      const err = new Error(body?.error?.message || ('http_' + res.status));
+      err.reason = reason;
+      throw err;
     }
     throw lastErr || new Error('sin_cuota');
   }
@@ -2197,6 +2256,25 @@
     document.getElementById('youtube-chat-dot').classList.toggle('live', !!live);
   }
 
+  // Nucleo de la conexion: lo usan tanto el boton manual (connectYoutubeChat,
+  // pegando el link) como el watcher de canal (startYoutubeChannelWatcher,
+  // detecta el directo solo). `auto` marca si la conecto el watcher, para
+  // saber si puedo desconectar sola cuando el directo termine (ver
+  // stopYoutubeChannelWatcher) sin pisar una conexion manual del streamer.
+  let ytAutoConnected = false;
+
+  async function connectToYoutubeVideo(videoId, auto) {
+    const { liveChatId, title } = await resolveLiveChatId(videoId);
+    ytLiveChatId = liveChatId;
+    ytNextPageToken = null;
+    ytAutoConnected = !!auto;
+    document.getElementById('youtube-connect-section').style.display = 'none';
+    document.getElementById('youtube-chat-section').style.display = '';
+    document.getElementById('youtube-chat-log').innerHTML = '<div class="kick-chat-empty">Conectando al chat…</div>';
+    setYoutubeStatus(title ? `En vivo · ${title}` : 'Chat de YouTube en vivo', true);
+    pollYoutubeChat();
+  }
+
   async function connectYoutubeChat() {
     const input = document.getElementById('youtube-video-input');
     const hint = document.getElementById('youtube-connect-hint');
@@ -2204,14 +2282,7 @@
     if (!videoId) { toast('No pude reconocer ese link/ID de video'); return; }
     hint.textContent = 'Buscando el directo…';
     try {
-      const { liveChatId, title } = await resolveLiveChatId(videoId);
-      ytLiveChatId = liveChatId;
-      ytNextPageToken = null;
-      document.getElementById('youtube-connect-section').style.display = 'none';
-      document.getElementById('youtube-chat-section').style.display = '';
-      document.getElementById('youtube-chat-log').innerHTML = '<div class="kick-chat-empty">Conectando al chat…</div>';
-      setYoutubeStatus(title ? `En vivo · ${title}` : 'Chat de YouTube en vivo', true);
-      pollYoutubeChat();
+      await connectToYoutubeVideo(videoId, false);
     } catch (err) {
       console.error(err);
       hint.textContent = err.message === 'sin_directo'
@@ -2231,7 +2302,11 @@
       ytNextPageToken = data.nextPageToken || null;
       (data.items || []).forEach(handleYoutubeMessage);
       setYoutubeStatus('Chat de YouTube en vivo', true);
-      const interval = Math.max(data.pollingIntervalMillis || 5000, 2000);
+      // Se ignora el intervalo que sugiere YouTube (suele pedir ~5s): con 4
+      // keys de cuota de sobra, se prioriza que se sienta lo mas en vivo
+      // posible. Si YouTube pide un intervalo mas chico todavia (chat muy
+      // activo), se respeta ese en vez de forzar el techo de 2s.
+      const interval = Math.min(data.pollingIntervalMillis || 2000, 2000);
       ytPollTimer = setTimeout(pollYoutubeChat, interval);
     } catch (err) {
       console.error(err);
@@ -2239,9 +2314,56 @@
         setYoutubeStatus('Sin API keys configuradas', false);
         return;
       }
+      if (err.reason === 'liveChatEnded') {
+        toast('El directo de YouTube terminó');
+        disconnectYoutubeChat(false);
+        return;
+      }
       setYoutubeStatus('Sin cuota disponible por hoy, reintentando en unos minutos…', false);
       ytPollTimer = setTimeout(pollYoutubeChat, 5 * 60000);
     }
+  }
+
+  // ---------- Deteccion automatica del directo por canal ----------
+  // Igual de comodo que Kick (que solo necesita el username), pero via
+  // search.list (eventType=live): a diferencia de leer el chat, esa llamada
+  // cuesta 100 unidades (no 5), asi que se chequea cada 5 min, no en cada
+  // poll del chat.
+  let ytChannelWatchTimer = null;
+
+  async function checkYoutubeChannelLive() {
+    if (!account || !account.youtube_channel_id) return;
+    // Si ya hay un chat conectado (a mano o por este mismo watcher), no
+    // gastamos otra llamada de 100 unidades para "confirmar" lo que ya
+    // sabemos; solo watcheamos mientras esta desconectado.
+    if (ytLiveChatId) return;
+    try {
+      const data = await callYoutubeApi('search', {
+        part: 'snippet',
+        channelId: account.youtube_channel_id,
+        eventType: 'live',
+        type: 'video',
+      });
+      const videoId = data.items && data.items[0] && data.items[0].id && data.items[0].id.videoId;
+      if (videoId) await connectToYoutubeVideo(videoId, true);
+    } catch (err) {
+      console.error(err);
+    }
+  }
+
+  function startYoutubeChannelWatcher() {
+    stopYoutubeChannelWatcher();
+    checkYoutubeChannelLive();
+    // 5 min, no menos: a diferencia del chat (5 unidades por consulta),
+    // esta consulta cuesta 100 unidades. Si el panel queda abierto horas
+    // sin que arranque el directo, un intervalo mas corto se come la cuota
+    // del dia antes de que el streamer llegue a transmitir.
+    ytChannelWatchTimer = setInterval(checkYoutubeChannelLive, 5 * 60000);
+  }
+
+  function stopYoutubeChannelWatcher() {
+    clearInterval(ytChannelWatchTimer);
+    ytChannelWatchTimer = null;
   }
 
   // Insignias como chips de texto (no hay un sheet de iconos de YouTube
@@ -2263,6 +2385,26 @@
     return (badges || []).map((b) => `<span class="kick-badge kick-badge-${YT_BADGE_CLASS[b] || 'other'}">${YT_BADGE_LABEL[b] || b}</span>`).join('');
   }
 
+  // El tier/nivel de un miembro NO viene en un mensaje normal de chat (la
+  // API de YouTube no lo manda ahi): solo aparece en el mensaje especial de
+  // "se hizo miembro" o "aniversario de membresia", que sí trae el nivel y
+  // los meses reales. Por eso van como chip aparte, no como badge de rol.
+  function ytMilestoneTag(item) {
+    const type = item.snippet && item.snippet.type;
+    if (type === 'memberMilestoneChatEvent') {
+      const d = item.snippet.memberMilestoneChatDetails || {};
+      const level = d.memberLevelName ? ` · ${escapeHtml(d.memberLevelName)}` : '';
+      const months = d.memberMonth ? `${d.memberMonth} MESES` : 'ANIVERSARIO';
+      return `<span class="kick-badge kick-badge-subscriber">MIEMBRO · ${escapeHtml(months)}${level}</span>`;
+    }
+    if (type === 'newSponsorEvent') {
+      const d = item.snippet.newSponsorDetails || {};
+      const level = d.memberLevelName ? ` · ${escapeHtml(d.memberLevelName)}` : '';
+      return `<span class="kick-badge kick-badge-subscriber">NUEVO MIEMBRO${level}</span>`;
+    }
+    return '';
+  }
+
   function ytMessageTime(item) {
     const d = item.snippet && item.snippet.publishedAt ? new Date(item.snippet.publishedAt) : new Date();
     if (isNaN(d.getTime())) return '';
@@ -2281,7 +2423,8 @@
     div.className = 'kick-msg';
     div.title = 'Click para mostrar este mensaje en el overlay';
     const superchatTag = isSuperchat ? '<span class="kick-badge kick-badge-gifter">SUPERCHAT</span>' : '';
-    div.innerHTML = `<span class="kick-who"><span class="kick-msg-time">${escapeHtml(ytMessageTime(item))}</span>${renderYtBadges(ytBadgesFor(author))}${superchatTag}<span class="kick-user">${escapeHtml(author.displayName || '?')}:</span></span> ${escapeHtml((item.snippet && item.snippet.displayMessage) || '')}`;
+    const milestoneTag = ytMilestoneTag(item);
+    div.innerHTML = `<span class="kick-who"><span class="kick-msg-time">${escapeHtml(ytMessageTime(item))}</span>${renderYtBadges(ytBadgesFor(author))}${superchatTag}${milestoneTag}<span class="kick-user">${escapeHtml(author.displayName || '?')}:</span></span> ${escapeHtml((item.snippet && item.snippet.displayMessage) || '')}`;
     div.addEventListener('click', () => toggleYoutubeHighlight(item, div));
     log.appendChild(div);
     while (log.children.length > KICK_LOG_MAX) log.removeChild(log.firstChild);
@@ -2376,24 +2519,25 @@
   }
   window.clearYoutubeChat = clearYoutubeChat;
 
-  // manual=true solo cuando el streamer clickea "Desconectar" (vuelve a
-  // mostrar el formulario para pegar otro link); al perder cuota/errores no
-  // se llama con manual, as' que el formulario no reaparece solo.
+  // manual=true solo cuando el streamer clickea "Desconectar" a proposito;
+  // cuando el directo termina solo (liveChatEnded) o hay un error, se llama
+  // sin manual. En ambos casos vuelve a mostrar el formulario para pegar un
+  // link (si hay un canal configurado, el watcher va a agarrar el proximo
+  // directo solo, sin que el streamer tenga que hacer nada).
   function disconnectYoutubeChat(manual) {
     clearTimeout(ytPollTimer);
     ytPollTimer = null;
     ytLiveChatId = null;
     ytNextPageToken = null;
+    ytAutoConnected = false;
     ytPaused = false;
     ytPausedQueue = [];
     ytHighlightedEl = null;
     ytHighlightedMsgId = null;
     document.getElementById('youtube-chat-section').style.display = 'none';
     document.getElementById('youtube-chat-log').innerHTML = '';
-    if (manual) {
-      document.getElementById('youtube-video-input').value = '';
-      updateYoutubeConnectVisibility();
-    }
+    if (manual) document.getElementById('youtube-video-input').value = '';
+    updateYoutubeConnectVisibility();
   }
   window.disconnectYoutubeChat = disconnectYoutubeChat;
 
