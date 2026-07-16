@@ -250,7 +250,7 @@
       if (currentSource === 'kick') { hideAll(); currentSource = null; }
       return;
     }
-    showCard({ id: 'kick-live', name: payload.name, content: payload.content, badges: payload.badges, source: 'kick' }, JSON.stringify(payload));
+    showCard({ id: 'kick-live', name: payload.name, content: payload.content, badges: payload.badges, avatar: payload.avatar, source: 'kick' }, JSON.stringify(payload));
     currentSource = 'kick';
   }
 
@@ -349,7 +349,9 @@
     el.style.setProperty('--message-color', isKick ? '#F2F2F2' : '#06251f');
     el.style.setProperty('--author-avatar-border-color', nameColor);
     const avatar = isKick
-      ? `<div class="hl-initial">${escapeHtml(name.trim().charAt(0).toUpperCase() || '?')}</div>`
+      ? (payment.avatar
+          ? `<img src="${escapeHtml(payment.avatar)}" alt="${escapeHtml(name)}">`
+          : `<div class="hl-initial">${escapeHtml(name.trim().charAt(0).toUpperCase() || '?')}</div>`)
       : yapeLogoSvg;
     // El "panelito" de monto es solo para yapes: un mensaje de chat de Kick
     // no tiene donation ribbon.

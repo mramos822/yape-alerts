@@ -1574,6 +1574,28 @@
     return kickOverlayChannel;
   }
 
+  // El mensaje del chat no trae foto de perfil (solo username): se resuelve
+  // aparte por su canal (kick.com/api/v2/channels/<slug>, campo profile_pic)
+  // solo cuando se resalta a alguien, no para cada mensaje que pasa por el
+  // chat. Cache simple para no repetir el pedido con la misma persona.
+  const kickAvatarCache = new Map();
+  async function resolveKickAvatar(slug) {
+    if (!slug) return null;
+    if (kickAvatarCache.has(slug)) return kickAvatarCache.get(slug);
+    let url = null;
+    try {
+      const res = await fetch(`https://kick.com/api/v2/channels/${encodeURIComponent(slug)}`);
+      if (res.ok) {
+        const data = await res.json();
+        url = data?.profile_pic || data?.user?.profile_pic || null;
+      }
+    } catch (err) {
+      console.error(err);
+    }
+    kickAvatarCache.set(slug, url);
+    return url;
+  }
+
   async function toggleKickHighlight(payload, el) {
     const ch = ensureKickOverlayChannel();
     if (!ch) { toast('No se pudo cargar tu cuenta, recarga la página'); return; }
@@ -1589,6 +1611,15 @@
       return;
     }
 
+    if (kickHighlightedEl) kickHighlightedEl.classList.remove('kick-msg-active');
+    el.classList.add('kick-msg-active');
+    kickHighlightedEl = el;
+    kickHighlightedMsgId = msgId;
+
+    const avatar = await resolveKickAvatar(payload.sender?.slug || payload.sender?.username);
+    // Si en el medio se clickeo otro mensaje, no pisar ese highlight mas nuevo.
+    if (kickHighlightedMsgId !== msgId) return;
+
     await ch.send({
       type: 'broadcast',
       event: 'kick-msg',
@@ -1596,12 +1627,9 @@
         name: payload.sender?.username || 'Alguien',
         content: payload.content || '',
         badges: payload.sender?.identity?.badges || [],
+        avatar,
       },
     });
-    if (kickHighlightedEl) kickHighlightedEl.classList.remove('kick-msg-active');
-    el.classList.add('kick-msg-active');
-    kickHighlightedEl = el;
-    kickHighlightedMsgId = msgId;
     toast('Mensaje mostrado en el overlay 💜');
   }
 
