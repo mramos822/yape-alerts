@@ -488,6 +488,39 @@
   @keyframes float { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-7px); } }
   .empty strong { display: block; color: var(--ink); font-size: 16px; font-weight: 900; margin-bottom: 4px; }
 
+  /* ---------- Chat de Kick ---------- */
+  #kick-chat-section { margin-top: 26px; }
+  .kick-chat-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    font-weight: 900;
+    color: var(--ink);
+    margin: 0 2px 10px;
+  }
+  .kick-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--ink-mute);
+    flex-shrink: 0;
+  }
+  .kick-dot.live { background: var(--teal); box-shadow: 0 0 0 0 rgba(20,198,164,.55); animation: livePulse 1.8s infinite; }
+  .kick-chat-log {
+    background: var(--card);
+    border-radius: 18px;
+    box-shadow: var(--shadow);
+    padding: 12px 16px;
+    max-height: 360px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+  }
+  .kick-msg { font-size: 13.5px; font-weight: 600; color: var(--ink); line-height: 1.4; }
+  .kick-msg .kick-user { font-weight: 900; color: var(--purple); }
+  .kick-chat-empty { color: var(--ink-mute); font-size: 13.5px; font-weight: 700; padding: 6px 2px; }
+
   /* ---------- Toast ---------- */
   .toast {
     position: fixed;
@@ -555,6 +588,9 @@
     font-weight: 800;
     margin-bottom: 12px;
   }
+  .auth-forgot { text-align: right; margin: -6px 0 14px; }
+  .auth-forgot a { font-size: 12.5px; font-weight: 800; color: var(--purple); cursor: pointer; text-decoration: none; }
+  .auth-forgot a:hover { text-decoration: underline; }
   .auth-submit {
     width: 100%;
     border: none;
@@ -613,6 +649,19 @@
     word-break: break-all;
     overflow-x: auto;
   }
+  .link-row input {
+    flex: 1;
+    font-family: inherit;
+    background: var(--purple-50);
+    border: 1px dashed var(--purple-200);
+    border-radius: 10px;
+    padding: 10px 12px;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--ink);
+    outline: none;
+  }
+  .link-row input:focus { border-style: solid; border-color: var(--purple); }
   .link-row button {
     flex-shrink: 0;
     border: none;
@@ -693,10 +742,13 @@
           <label for="auth-email">Correo</label>
           <input id="auth-email" type="email" autocomplete="email" required placeholder="tucorreo@ejemplo.com">
         </div>
-        <div class="auth-field">
+        <div class="auth-field" id="field-password">
           <label for="auth-password">Contraseña</label>
           <input id="auth-password" type="password" autocomplete="current-password" required minlength="6" placeholder="Mínimo 6 caracteres">
         </div>
+        <p class="auth-forgot" id="field-forgot">
+          <a onclick="setAuthMode('forgot')">¿Olvidaste tu contraseña?</a>
+        </p>
         <button class="auth-submit" id="auth-submit" type="submit">Entrar</button>
       </form>
       <p class="auth-switch" id="auth-switch">
@@ -725,6 +777,17 @@
           <button onclick="copyText('link-code', 'Código copiado')">Copiar</button>
         </div>
         <div class="hint">Pégalo en la app Yape Alert de tu celular, en el paso "Vincula tu cuenta".</div>
+      </div>
+      <div class="link-block">
+        <div class="lbl">Chat de Kick (opcional)</div>
+        <div class="link-row">
+          <input id="kick-chatroom-input" type="text" inputmode="numeric" placeholder="ID numérico del chatroom">
+          <button onclick="saveKickChatroom()">Guardar</button>
+        </div>
+        <div class="hint">
+          Abre <code>kick.com/api/v2/channels/TU-CANAL</code> en una pestaña y busca
+          <code>"chatroom":{"id":...}</code>. Pega ese número acá para ver el chat en vivo abajo del panel.
+        </div>
       </div>
       <button class="modal-close" onclick="closeLinks()">Cerrar</button>
     </div>
@@ -763,6 +826,14 @@
       <strong>Todo tranquilo por aquí</strong>
       No hay pagos en esta pestaña por ahora.
     </div>
+
+    <div id="kick-chat-section" style="display:none">
+      <div class="kick-chat-head">
+        <span class="kick-dot" id="kick-chat-dot"></span>
+        <span id="kick-chat-status">Chat de Kick</span>
+      </div>
+      <div id="kick-chat-log" class="kick-chat-log"></div>
+    </div>
   </div>
 
   <div id="toast" class="toast"></div>
@@ -779,19 +850,39 @@
   let account = null; // fila de `accounts`: overlay_key, ingest_code, channel_name
   let authMode = 'login';
   let appStarted = false;
+  // El enlace de "olvidé mi contraseña" vuelve aca con #type=recovery en la
+  // URL: Supabase arma una sesion sola con eso, pero no hay que dejar pasar
+  // directo al panel sin que primero elija una contraseña nueva.
+  let recoveryFlow = location.hash.includes('type=recovery');
+
+  const AUTH_COPY = {
+    login:   { title: 'Inicia sesión', sub: 'Entra con tu cuenta para moderar tus yapes.', submit: 'Entrar' },
+    signup:  { title: 'Crea tu cuenta', sub: 'Gratis. Tendrás tu propio overlay y tu propio panel de yapes.', submit: 'Crear cuenta' },
+    forgot:  { title: 'Recupera tu contraseña', sub: 'Escribe tu correo y te mandamos un enlace para elegir una nueva.', submit: 'Enviar enlace' },
+    reset:   { title: 'Elige una nueva contraseña', sub: 'Termina de recuperar tu cuenta escribiendo una contraseña nueva.', submit: 'Guardar contraseña' },
+  };
 
   function setAuthMode(mode) {
     authMode = mode;
     document.getElementById('field-channel').style.display = mode === 'signup' ? '' : 'none';
-    document.getElementById('auth-title').textContent = mode === 'signup' ? 'Crea tu cuenta' : 'Inicia sesión';
-    document.getElementById('auth-sub').textContent = mode === 'signup'
-      ? 'Gratis. Tendrás tu propio overlay y tu propio panel de yapes.'
-      : 'Entra con tu cuenta para moderar tus yapes.';
-    document.getElementById('auth-submit').textContent = mode === 'signup' ? 'Crear cuenta' : 'Entrar';
-    document.getElementById('auth-password').autocomplete = mode === 'signup' ? 'new-password' : 'current-password';
-    document.getElementById('auth-switch').innerHTML = mode === 'signup'
-      ? '¿Ya tienes cuenta? <a onclick="setAuthMode(\'login\')">Inicia sesión</a>'
-      : '¿No tienes cuenta? <a onclick="setAuthMode(\'signup\')">Crea una gratis</a>';
+    document.getElementById('field-password').style.display = mode === 'forgot' ? 'none' : '';
+    document.getElementById('field-forgot').style.display = mode === 'login' ? '' : 'none';
+
+    const copy = AUTH_COPY[mode];
+    document.getElementById('auth-title').textContent = copy.title;
+    document.getElementById('auth-sub').textContent = copy.sub;
+    document.getElementById('auth-submit').textContent = copy.submit;
+    document.getElementById('auth-password').autocomplete = (mode === 'signup' || mode === 'reset') ? 'new-password' : 'current-password';
+    document.getElementById('auth-password').placeholder = mode === 'reset' ? 'Nueva contraseña (mínimo 6 caracteres)' : 'Mínimo 6 caracteres';
+
+    const switchEl = document.getElementById('auth-switch');
+    if (mode === 'signup') {
+      switchEl.innerHTML = '¿Ya tienes cuenta? <a onclick="setAuthMode(\'login\')">Inicia sesión</a>';
+    } else if (mode === 'forgot' || mode === 'reset') {
+      switchEl.innerHTML = '<a onclick="setAuthMode(\'login\')">Volver a iniciar sesión</a>';
+    } else {
+      switchEl.innerHTML = '¿No tienes cuenta? <a onclick="setAuthMode(\'signup\')">Crea una gratis</a>';
+    }
     authError('');
   }
   window.setAuthMode = setAuthMode;
@@ -833,6 +924,25 @@
           return;
         }
         await startApp(data.session);
+      } else if (authMode === 'forgot') {
+        const { error } = await sb.auth.resetPasswordForEmail(email, {
+          redirectTo: location.origin + location.pathname,
+        });
+        if (error) { authError(friendlyAuthError(error)); return; }
+        toast('Te enviamos un correo con el enlace para recuperarla');
+        setAuthMode('login');
+      } else if (authMode === 'reset') {
+        const { data: { session: recSession } } = await sb.auth.getSession();
+        if (!recSession) {
+          authError('El enlace expiró o ya se usó. Pide uno nuevo con "¿Olvidaste tu contraseña?".');
+          return;
+        }
+        const { error } = await sb.auth.updateUser({ password });
+        if (error) { authError(friendlyAuthError(error)); return; }
+        recoveryFlow = false;
+        history.replaceState(null, '', location.pathname + location.search);
+        toast('Contraseña actualizada');
+        await startApp(recSession);
       } else {
         const { data, error } = await sb.auth.signInWithPassword({ email, password });
         if (error) { authError(friendlyAuthError(error)); return; }
@@ -844,7 +954,7 @@
   });
 
   async function startApp(session) {
-    if (appStarted) return;
+    if (appStarted || recoveryFlow) return;
     appStarted = true;
     uid = session.user.id;
     const { data, error } = await sb.from('accounts').select('*').maybeSingle();
@@ -860,6 +970,7 @@
     renderPhones();
     setInterval(renderPhones, 30000); // el "hace X min" envejece solo
     connect();
+    if (account && account.kick_chatroom_id) connectKickChat(account.kick_chatroom_id);
   }
 
   // ---------- Estado de los celulares (latido de la app Android) ----------
@@ -956,9 +1067,21 @@
     if (!account) { toast('No se pudo cargar tu cuenta, recarga la página'); return; }
     document.getElementById('link-overlay').textContent = overlayUrl();
     document.getElementById('link-code').textContent = account.ingest_code;
+    document.getElementById('kick-chatroom-input').value = account.kick_chatroom_id || '';
     document.getElementById('links-modal').classList.add('open');
   }
   window.openLinks = openLinks;
+
+  async function saveKickChatroom() {
+    const id = document.getElementById('kick-chatroom-input').value.trim();
+    if (id && !/^\d+$/.test(id)) { toast('El ID del chatroom es solo números'); return; }
+    const { error } = await sb.from('accounts').update({ kick_chatroom_id: id || null }).eq('user_id', uid);
+    if (error) { toast('No se pudo guardar'); console.error(error); return; }
+    account.kick_chatroom_id = id || null;
+    toast(id ? 'Chat de Kick conectado' : 'Chat de Kick desactivado');
+    if (id) connectKickChat(id); else disconnectKickChat();
+  }
+  window.saveKickChatroom = saveKickChatroom;
 
   function closeLinks() {
     document.getElementById('links-modal').classList.remove('open');
@@ -1295,6 +1418,78 @@
       });
   }
 
+  // ---------- Chat de Kick (WebSocket directo a Pusher, sin servidor propio) ----------
+  const KICK_PUSHER_URL = 'wss://ws-us2.pusher.com/app/32cbd69e4b950bf97679?protocol=7&client=js&version=8.4.0&flash=false';
+  let kickWs = null;
+  let kickReconnectTimer = null;
+  const KICK_LOG_MAX = 150;
+
+  function setKickStatus(text, live) {
+    document.getElementById('kick-chat-status').textContent = text;
+    document.getElementById('kick-chat-dot').classList.toggle('live', !!live);
+  }
+
+  function addKickMessage(username, content) {
+    const log = document.getElementById('kick-chat-log');
+    const empty = log.querySelector('.kick-chat-empty');
+    if (empty) empty.remove();
+    const div = document.createElement('div');
+    div.className = 'kick-msg';
+    div.innerHTML = `<span class="kick-user">${escapeHtml(username)}:</span> ${escapeHtml(content)}`;
+    log.appendChild(div);
+    while (log.children.length > KICK_LOG_MAX) log.removeChild(log.firstChild);
+    log.scrollTop = log.scrollHeight;
+  }
+
+  function connectKickChat(chatroomId) {
+    disconnectKickChat();
+    document.getElementById('kick-chat-section').style.display = '';
+    const log = document.getElementById('kick-chat-log');
+    log.innerHTML = '<div class="kick-chat-empty">Conectando al chat de Kick…</div>';
+    setKickStatus('Conectando…', false);
+
+    kickWs = new WebSocket(KICK_PUSHER_URL);
+
+    kickWs.onmessage = (evt) => {
+      let msg;
+      try { msg = JSON.parse(evt.data); } catch { return; }
+
+      if (msg.event === 'pusher:connection_established') {
+        kickWs.send(JSON.stringify({
+          event: 'pusher:subscribe',
+          data: { channel: `chatrooms.${chatroomId}.v2` },
+        }));
+        return;
+      }
+      if (msg.event === 'pusher_internal:subscription_succeeded') {
+        setKickStatus('Chat de Kick en vivo', true);
+        const empty = log.querySelector('.kick-chat-empty');
+        if (empty) empty.textContent = 'Sin mensajes todavía.';
+        return;
+      }
+      if (msg.event === 'App\\Events\\ChatMessageEvent') {
+        let payload;
+        try { payload = JSON.parse(msg.data); } catch { return; }
+        addKickMessage(payload.sender?.username || '?', payload.content || '');
+      }
+    };
+
+    kickWs.onclose = () => {
+      setKickStatus('Chat de Kick desconectado, reintentando…', false);
+      kickReconnectTimer = setTimeout(() => {
+        if (account && account.kick_chatroom_id === chatroomId) connectKickChat(chatroomId);
+      }, 5000);
+    };
+    kickWs.onerror = () => { if (kickWs) kickWs.close(); };
+  }
+
+  function disconnectKickChat() {
+    clearTimeout(kickReconnectTimer);
+    if (kickWs) { kickWs.onclose = null; kickWs.close(); kickWs = null; }
+    document.getElementById('kick-chat-section').style.display = 'none';
+    document.getElementById('kick-chat-log').innerHTML = '';
+  }
+
   const testSamples = [
     { name: 'Rosa Quispe', amount: '5.00' }, // sin mensaje
     { name: 'Juan Perez', amount: '10.00', message: 'Vamos!' }, // corto
@@ -1329,8 +1524,10 @@
     ? location.hash.slice(1) : 'pending';
   updateThemeIcon();
   setTab(initialTab);
+  if (recoveryFlow) setAuthMode('reset');
 
-  // Arranque: si ya hay sesion guardada entra directo; si no, pantalla de acceso.
+  // Arranque: si ya hay sesion guardada entra directo; si no, pantalla de
+  // acceso (o el formulario de nueva contraseña si viene del enlace de recuperacion).
   (async () => {
     const { data: { session } } = await sb.auth.getSession();
     if (session) await startApp(session);
