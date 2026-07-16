@@ -2198,6 +2198,14 @@
   // varias keys (una por proyecto, ver "Mis enlaces"): si una se queda sin
   // cuota a mitad de directo, se rota sola a la siguiente.
   const YOUTUBE_API_BASE = 'https://www.googleapis.com/youtube/v3';
+  // Si el panel se abre como archivo local (file:///...) para probar,
+  // window.location.origin da "file://" pero el navegador lo trata como el
+  // origen opaco "null" y rechaza el postMessage si se lo pasamos tal cual.
+  // '*' funciona tanto ahi como en el sitio publicado real.
+  const YT_EXT_TARGET_ORIGIN = window.location.protocol === 'file:' ? '*' : window.location.origin;
+  function postToYoutubeExtension(data) {
+    window.postMessage(data, YT_EXT_TARGET_ORIGIN);
+  }
   let ytKeyIndex = 0;
   let ytLiveChatId = null;
   let ytNextPageToken = null;
@@ -2291,7 +2299,7 @@
     // esto le avisa que abra sola el chat popout de este video: asi el
     // streamer no tiene que acordarse de abrirlo el mismo para tener el
     // tier real de los miembros.
-    window.postMessage({ source: 'yape-alert-panel', type: 'yt-chat-connected', videoId }, window.location.origin);
+    postToYoutubeExtension({ source: 'yape-alert-panel', type: 'yt-chat-connected', videoId });
   }
 
   async function connectYoutubeChat() {
@@ -2685,7 +2693,7 @@
     if (manual) document.getElementById('youtube-video-input').value = '';
     updateYoutubeConnectVisibility();
     // Si la extension abrió sola el chat popout, que lo cierre tambien sola.
-    window.postMessage({ source: 'yape-alert-panel', type: 'yt-chat-disconnected' }, window.location.origin);
+    postToYoutubeExtension({ source: 'yape-alert-panel', type: 'yt-chat-disconnected' });
   }
   window.disconnectYoutubeChat = disconnectYoutubeChat;
 
