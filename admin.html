@@ -781,13 +781,10 @@
       <div class="link-block">
         <div class="lbl">Chat de Kick (opcional)</div>
         <div class="link-row">
-          <input id="kick-chatroom-input" type="text" inputmode="numeric" placeholder="ID numérico del chatroom">
-          <button onclick="saveKickChatroom()">Guardar</button>
+          <input id="kick-username-input" type="text" placeholder="tu usuario de kick">
+          <button id="kick-username-save" onclick="saveKickChatroom()">Guardar</button>
         </div>
-        <div class="hint">
-          Abre <code>kick.com/api/v2/channels/TU-CANAL</code> en una pestaña y busca
-          <code>"chatroom":{"id":...}</code>. Pega ese número acá para ver el chat en vivo abajo del panel.
-        </div>
+        <div class="hint" id="kick-username-hint">Escribe tu usuario de Kick (el que aparece en kick.com/tu-usuario) para ver el chat en vivo abajo del panel.</div>
       </div>
       <button class="modal-close" onclick="closeLinks()">Cerrar</button>
     </div>
@@ -1073,19 +1070,59 @@
     if (!account) { toast('No se pudo cargar tu cuenta, recarga la página'); return; }
     document.getElementById('link-overlay').textContent = overlayUrl();
     document.getElementById('link-code').textContent = account.ingest_code;
-    document.getElementById('kick-chatroom-input').value = account.kick_chatroom_id || '';
+    document.getElementById('kick-username-input').value = account.kick_username || '';
     document.getElementById('links-modal').classList.add('open');
   }
   window.openLinks = openLinks;
 
+  // Resuelve el nombre de usuario de Kick al chatroom_id numerico que
+  // necesita el WebSocket. El endpoint de Kick esta detras de Cloudflare: si
+  // el fetch falla (CORS/bloqueo), se lo decimos al streamer en vez de
+  // quedarnos callados.
+  async function resolveKickChatroomId(username) {
+    const res = await fetch(`https://kick.com/api/v2/channels/${encodeURIComponent(username)}`);
+    if (!res.ok) throw new Error('http_' + res.status);
+    const data = await res.json();
+    const id = data && data.chatroom && data.chatroom.id;
+    if (!id) throw new Error('sin_chatroom');
+    return String(id);
+  }
+
   async function saveKickChatroom() {
-    const id = document.getElementById('kick-chatroom-input').value.trim();
-    if (id && !/^\d+$/.test(id)) { toast('El ID del chatroom es solo números'); return; }
-    const { error } = await sb.from('accounts').update({ kick_chatroom_id: id || null }).eq('user_id', uid);
-    if (error) { toast('No se pudo guardar'); console.error(error); return; }
-    account.kick_chatroom_id = id || null;
-    toast(id ? 'Chat de Kick conectado' : 'Chat de Kick desactivado');
-    if (id) connectKickChat(id); else disconnectKickChat();
+    const username = document.getElementById('kick-username-input').value.trim().replace(/^@/, '');
+    const btn = document.getElementById('kick-username-save');
+    const hint = document.getElementById('kick-username-hint');
+
+    if (!username) {
+      const { error } = await sb.from('accounts').update({ kick_username: null, kick_chatroom_id: null }).eq('user_id', uid);
+      if (error) { toast('No se pudo guardar'); console.error(error); return; }
+      account.kick_username = null;
+      account.kick_chatroom_id = null;
+      toast('Chat de Kick desactivado');
+      disconnectKickChat();
+      return;
+    }
+
+    btn.disabled = true;
+    hint.textContent = 'Buscando tu canal en Kick…';
+    try {
+      // Si el automatico falla, el mensaje de error le pide al streamer
+      // pegar el ID numerico del chatroom directamente en este mismo campo.
+      const chatroomId = /^\d+$/.test(username) ? username : await resolveKickChatroomId(username);
+      const { error } = await sb.from('accounts').update({ kick_username: username, kick_chatroom_id: chatroomId }).eq('user_id', uid);
+      if (error) { toast('No se pudo guardar'); console.error(error); return; }
+      account.kick_username = username;
+      account.kick_chatroom_id = chatroomId;
+      hint.textContent = 'Escribe tu usuario de Kick (el que aparece en kick.com/tu-usuario) para ver el chat en vivo abajo del panel.';
+      toast('Chat de Kick conectado');
+      connectKickChat(chatroomId);
+    } catch (err) {
+      console.error(err);
+      hint.textContent = 'No se pudo encontrar ese canal automáticamente (Kick bloqueó la búsqueda desde acá). Escribe el ID numérico del chatroom en vez del usuario, o intenta de nuevo más tarde.';
+      toast('No se pudo resolver el canal de Kick');
+    } finally {
+      btn.disabled = false;
+    }
   }
   window.saveKickChatroom = saveKickChatroom;
 
