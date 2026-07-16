@@ -490,6 +490,41 @@
 
   /* ---------- Chat de Kick ---------- */
   #kick-chat-section { margin-top: 26px; }
+  .kick-channel-head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: var(--card);
+    border-radius: 18px;
+    box-shadow: var(--shadow);
+    padding: 12px 16px;
+    margin: 0 2px 12px;
+  }
+  .kick-channel-avatar {
+    width: 44px; height: 44px;
+    border-radius: 50%;
+    object-fit: cover;
+    flex-shrink: 0;
+    background: var(--purple-50);
+  }
+  .kick-channel-info { min-width: 0; flex: 1; }
+  .kick-channel-name {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 14.5px;
+    font-weight: 900;
+    color: var(--ink);
+  }
+  .kick-channel-title {
+    font-size: 12.5px;
+    font-weight: 700;
+    color: var(--ink-mute);
+    margin-top: 2px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
   .kick-chat-head {
     display: flex;
     align-items: center;
@@ -899,12 +934,26 @@
     </div>
 
     <div id="kick-chat-section" style="display:none">
+      <div id="kick-channel-head" class="kick-channel-head" style="display:none">
+        <img id="kick-channel-avatar" class="kick-channel-avatar" alt="">
+        <div class="kick-channel-info">
+          <div class="kick-channel-name">
+            <span id="kick-channel-username"></span>
+            <span class="kick-dot" id="kick-channel-live-dot"></span>
+          </div>
+          <div class="kick-channel-title" id="kick-channel-title"></div>
+        </div>
+      </div>
       <div class="kick-chat-head">
         <span class="kick-dot" id="kick-chat-dot"></span>
         <span id="kick-chat-status">Chat de Kick</span>
         <button id="kick-pause-btn" class="kick-pause-btn" onclick="toggleKickPause()" title="Pausar el chat">
           <svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>
           Pausar
+        </button>
+        <button id="kick-clear-btn" class="kick-pause-btn" onclick="clearKickChat()" title="Borrar el chat">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg>
+          Borrar chat
         </button>
       </div>
       <div id="kick-chat-log" class="kick-chat-log"></div>
@@ -1743,6 +1792,20 @@
     savePersistedKickLog();
   }
 
+  // Borra lo que se ve (y lo persistido) sin tocar la conexion: el chat
+  // sigue en vivo y los mensajes nuevos se siguen mostrando normal.
+  function clearKickChat() {
+    if (!confirm('¿Borrar todo el chat de Kick mostrado hasta ahora? No se puede deshacer.')) return;
+    kickLogEntries = [];
+    savePersistedKickLog();
+    if (kickHighlightedEl) kickHighlightedEl.classList.remove('kick-msg-active');
+    kickHighlightedEl = null;
+    kickHighlightedMsgId = null;
+    document.getElementById('kick-chat-log').innerHTML = '<div class="kick-chat-empty">Sin mensajes todavía.</div>';
+    toast('Chat de Kick borrado');
+  }
+  window.clearKickChat = clearKickChat;
+
   // Pausar solo detiene lo que se pinta en pantalla: el WebSocket sigue
   // recibiendo todo de Kick igual, los mensajes se guardan en
   // kickPausedQueue y se insertan todos de un tiro al reanudar.
@@ -1769,10 +1832,38 @@
   }
   window.toggleKickPause = toggleKickPause;
 
+  // Cabecera tipo Kick arriba del chat: foto, nombre del canal, punto de
+  // "en vivo" y titulo del directo actual. Se refresca cada tanto porque
+  // el titulo puede cambiar sin que se reconecte el chat.
+  let kickChannelRefreshTimer = null;
+
+  async function loadKickChannelInfo(username) {
+    const head = document.getElementById('kick-channel-head');
+    if (!username) { head.style.display = 'none'; return; }
+    try {
+      const res = await fetch(`https://kick.com/api/v2/channels/${encodeURIComponent(username)}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      const avatar = data?.user?.profile_pic || data?.profile_pic || '';
+      const displayName = data?.user?.username || data?.slug || username;
+      const isLive = !!data?.livestream;
+      const title = data?.livestream?.session_title || '';
+      document.getElementById('kick-channel-avatar').src = avatar;
+      document.getElementById('kick-channel-username').textContent = displayName;
+      document.getElementById('kick-channel-live-dot').classList.toggle('live', isLive);
+      document.getElementById('kick-channel-title').textContent = title || (isLive ? '' : 'Sin transmisión en vivo');
+      head.style.display = 'flex';
+    } catch (err) {
+      console.error(err);
+    }
+  }
+
   function connectKickChat(chatroomId) {
     disconnectKickChat();
     kickCurrentChatroomId = chatroomId;
     document.getElementById('kick-chat-section').style.display = '';
+    loadKickChannelInfo(account?.kick_username);
+    kickChannelRefreshTimer = setInterval(() => loadKickChannelInfo(account?.kick_username), 60000);
     const log = document.getElementById('kick-chat-log');
     kickLogEntries = loadPersistedKickLog(chatroomId);
     if (kickLogEntries.length) {
@@ -1828,8 +1919,11 @@
   // cambiar de pestana el historial guardado debe seguir intacto.
   function disconnectKickChat(clearPersisted) {
     clearTimeout(kickReconnectTimer);
+    clearInterval(kickChannelRefreshTimer);
+    kickChannelRefreshTimer = null;
     if (kickWs) { kickWs.onclose = null; kickWs.close(); kickWs = null; }
     document.getElementById('kick-chat-section').style.display = 'none';
+    document.getElementById('kick-channel-head').style.display = 'none';
     document.getElementById('kick-chat-log').innerHTML = '';
     kickHighlightedEl = null;
     kickHighlightedMsgId = null;
