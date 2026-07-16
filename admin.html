@@ -2199,6 +2199,12 @@
   let ytHighlightedEl = null;
   let ytHighlightedMsgId = null;
   let ytOverlayChannel = null;
+  // Si la extension del navegador esta activa (ver browser-extension/), se
+  // usa ella como fuente en vivo (sin retraso, sin cuota) y se pausa el
+  // polling de la API mientras siga mandando mensajes; si se corta (se
+  // cerro la pestaña, por ejemplo), se vuelve a la API sola como respaldo.
+  let ytExtensionActive = false;
+  let ytExtensionIdleTimer = null;
 
   function ensureYtOverlayChannel() {
     if (ytOverlayChannel || !account) return ytOverlayChannel;
@@ -2300,12 +2306,16 @@
 
   async function pollYoutubeChat() {
     if (!ytLiveChatId) return;
+    // La extension (si esta activa) ya esta mandando los mensajes en vivo
+    // sin gastar cuota; no tiene sentido seguir pollendo la API en paralelo.
+    if (ytExtensionActive) return;
     try {
       const params = { liveChatId: ytLiveChatId, part: 'snippet,authorDetails' };
       if (ytNextPageToken) params.pageToken = ytNextPageToken;
       const data = await callYoutubeApi('liveChat/messages', params);
       ytNextPageToken = data.nextPageToken || null;
       (data.items || []).forEach(handleYoutubeMessage);
+      if (ytExtensionActive) return; // se activo mientras esperabamos la respuesta
       setYoutubeStatus('Chat de YouTube en vivo', true);
       // Se ignora el intervalo que sugiere YouTube (suele pedir ~5s): con 4
       // keys de cuota de sobra, se prioriza que se sienta lo mas en vivo
@@ -2388,7 +2398,59 @@
     const data = event.data;
     if (!data || data.source !== 'yape-alert-ext' || !data.name) return;
     ytTierCache.set(data.name, data);
+    if (data.type === 'yt-message') handleExtensionYoutubeMessage(data);
   });
+
+  // Convierte lo que scrapea la extension a la misma forma que devuelve la
+  // API oficial (snippet/authorDetails), asi se reusa exactamente el mismo
+  // render/insercion de superchats que ya existe (handleYoutubeMessage) sin
+  // duplicar logica entre las dos fuentes.
+  function fakeYoutubeItemFromExtension(data) {
+    const type = data.kind === 'superChat' ? 'superChatEvent'
+      : data.kind === 'superSticker' ? 'superStickerEvent'
+      : data.kind === 'membership' ? 'newSponsorEvent'
+      : 'textMessageEvent';
+    const snippet = {
+      type,
+      displayMessage: data.message || '',
+      publishedAt: new Date(data.publishedAt || Date.now()).toISOString(),
+    };
+    if (type === 'superChatEvent') snippet.superChatDetails = { amountDisplayString: data.amountText || '', userComment: data.message || '' };
+    if (type === 'superStickerEvent') snippet.superStickerDetails = { amountDisplayString: data.amountText || '' };
+    return {
+      id: data.msgId,
+      snippet,
+      authorDetails: {
+        displayName: data.name || 'Anónimo',
+        profileImageUrl: data.avatar || '',
+        isChatOwner: !!data.isOwner,
+        isChatModerator: !!data.isMod,
+        isChatSponsor: !!data.isMember,
+        isVerified: !!data.isVerified,
+      },
+    };
+  }
+
+  function handleExtensionYoutubeMessage(data) {
+    // Solo se usa mientras hay una sesion conectada (mismo criterio que la
+    // API): si el streamer no conecto nada todavia, se ignora aunque la
+    // extension este mandando datos de una pestaña abierta de fondo.
+    if (!ytLiveChatId) return;
+    if (!ytExtensionActive) {
+      ytExtensionActive = true;
+      clearTimeout(ytPollTimer);
+      ytPollTimer = null;
+      setYoutubeStatus('Chat de YouTube en vivo (extensión, sin retraso)', true);
+    }
+    clearTimeout(ytExtensionIdleTimer);
+    // Si la extension deja de mandar mensajes por 20s (se cerro la pestaña,
+    // se recargo, etc.), se asume cortada y vuelve a andar la API sola.
+    ytExtensionIdleTimer = setTimeout(() => {
+      ytExtensionActive = false;
+      if (ytLiveChatId && !ytPollTimer) pollYoutubeChat();
+    }, 20000);
+    handleYoutubeMessage(fakeYoutubeItemFromExtension(data));
+  }
 
   function ytBadgesFor(author) {
     const badges = [];
@@ -2553,6 +2615,9 @@
   function disconnectYoutubeChat(manual) {
     clearTimeout(ytPollTimer);
     ytPollTimer = null;
+    clearTimeout(ytExtensionIdleTimer);
+    ytExtensionIdleTimer = null;
+    ytExtensionActive = false;
     ytLiveChatId = null;
     ytNextPageToken = null;
     ytAutoConnected = false;
