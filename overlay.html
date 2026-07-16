@@ -88,6 +88,19 @@
     object-position: 40% center;
   }
 
+  .hl-initial {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    background: #06251f;
+    color: var(--author-bg-color);
+    font-weight: 900;
+    font-size: 30px;
+  }
+
   .hl-name {
     position: absolute;
     top: -30px;
@@ -253,19 +266,23 @@
     cardsById.clear();
 
     const name = payment.name || 'Alguien';
-    const color = tierColor(payment.amount);
+    const isKick = payment.source === 'kick';
+    const color = isKick ? '#53FC18' : tierColor(payment.amount);
     const el = document.createElement('div');
     el.className = 'superchat';
     el.style.setProperty('--author-bg-color', color);
     el.style.setProperty('--author-avatar-border-color', color);
+    const avatar = isKick
+      ? `<div class="hl-initial">${escapeHtml(name.trim().charAt(0).toUpperCase() || '?')}</div>`
+      : yapeLogoSvg;
+    const donation = isKick
+      ? `<div class="donation"><div class="donation-title">KICK</div></div>`
+      : `<div class="donation"><div class="donation-title">YAPE</div><div class="donation-subtitle">S/. ${payment.amount || '0.00'}</div></div>`;
     el.innerHTML = `
       <div class="hl-message">
-        <div class="hl-img">${yapeLogoSvg}</div>
+        <div class="hl-img">${avatar}</div>
         <div class="hl-name">${escapeHtml(name)}</div>
-        <div class="donation">
-          <div class="donation-title">YAPE</div>
-          <div class="donation-subtitle">S/. ${payment.amount || '0.00'}</div>
-        </div>
+        ${donation}
         <div class="text">${payment.message ? escapeHtml(payment.message) : '<em>(sin mensaje)</em>'}</div>
       </div>
     `;

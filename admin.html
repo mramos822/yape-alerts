@@ -422,6 +422,15 @@
     background-size: 200% auto;
   }
   @keyframes shine { to { background-position: 200% center; } }
+  .kick-source-tag {
+    font-size: 11px;
+    font-weight: 900;
+    letter-spacing: .03em;
+    color: #06251f;
+    background: #53FC18;
+    border-radius: 999px;
+    padding: 4px 11px;
+  }
 
   .card-actions {
     grid-area: actions;
@@ -517,7 +526,19 @@
     flex-direction: column;
     gap: 7px;
   }
-  .kick-msg { font-size: 13.5px; font-weight: 600; color: var(--ink); line-height: 1.4; }
+  .kick-msg {
+    font-size: 13.5px;
+    font-weight: 600;
+    color: var(--ink);
+    line-height: 1.4;
+    cursor: pointer;
+    border-radius: 8px;
+    padding: 3px 6px;
+    margin: 0 -6px;
+    transition: background .12s;
+  }
+  .kick-msg:hover { background: var(--purple-50); }
+  .kick-msg:active { background: var(--purple-100); }
   .kick-who {
     display: inline-flex;
     align-items: center;
@@ -1191,6 +1212,7 @@
       everDismissed: row.ever_dismissed,
       onOverlay: row.on_overlay,
       receivedAt: row.received_at ? new Date(row.received_at).getTime() : null,
+      source: row.source || 'yape',
     };
   }
 
@@ -1337,6 +1359,9 @@
     const initial = (p.name || '?').trim().charAt(0).toUpperCase();
     const amount = parseFloat(p.amount) || 0;
     const topBadge = amount >= 50 ? '<span class="top">★ TOP YAPE</span>' : '';
+    const amountBlock = p.source === 'kick'
+      ? '<div class="card-amount"><span class="kick-source-tag">KICK</span></div>'
+      : `<div class="card-amount"><span class="cur">S/</span><span class="val">${amountVal(p)}</span>${topBadge}</div>`;
     card.innerHTML = `
       <div class="card-avatar">${initial}</div>
       <div class="card-main">
@@ -1345,9 +1370,7 @@
         <span class="card-time">${timeText(p)}</span>
       </div>
       <div class="card-message">${p.message ? escapeHtml(p.message) : '<em>Sin mensaje</em>'}</div>
-      <div class="card-amount">
-        <span class="cur">S/</span><span class="val">${amountVal(p)}</span>${topBadge}
-      </div>
+      ${amountBlock}
       <div class="card-actions">${actionsFor(p)}</div>
     `;
     applyFilter();
@@ -1546,6 +1569,24 @@
     }).join('');
   }
 
+  // El overlay no sabe dibujar emotes de Kick: para el texto que se guarda
+  // en `payments.message` se deja solo el nombre del emote, sin el token.
+  function kickPlainText(content) {
+    return String(content || '').replace(/\[emote:\d+:([^\]]*)\]/g, '$1');
+  }
+
+  async function sendKickMessageToOverlay(payload) {
+    const name = payload.sender?.username || 'Alguien';
+    const message = kickPlainText(payload.content);
+    const { data, error } = await sb.from('payments')
+      .insert({ name, message, amount: null, source: 'kick' })
+      .select().single();
+    if (error) { toast('No se pudo mostrar el mensaje'); console.error(error); return; }
+    const { error: err2 } = await sb.rpc('approve_payment', { target_id: data.id });
+    if (err2) { toast('No se pudo mostrar el mensaje'); console.error(err2); return; }
+    toast('Mensaje mostrado en el overlay 💜');
+  }
+
   function addKickMessage(payload) {
     const log = document.getElementById('kick-chat-log');
     const empty = log.querySelector('.kick-chat-empty');
@@ -1555,7 +1596,9 @@
     const color = /^#[0-9a-fA-F]{3,8}$/.test(rawColor) ? rawColor : '';
     const div = document.createElement('div');
     div.className = 'kick-msg';
+    div.title = 'Click para mostrar este mensaje en el overlay';
     div.innerHTML = `<span class="kick-who">${renderKickBadges(payload.sender?.identity?.badges)}<span class="kick-user"${color ? ` style="color:${escapeHtml(color)}"` : ''}>${escapeHtml(username)}:</span></span> ${renderKickContent(payload.content)}`;
+    div.addEventListener('click', () => sendKickMessageToOverlay(payload));
     log.appendChild(div);
     while (log.children.length > KICK_LOG_MAX) log.removeChild(log.firstChild);
     log.scrollTop = log.scrollHeight;
