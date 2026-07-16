@@ -199,9 +199,15 @@
 
   const yapeLogoSvg = `<img src="logo/logo.png" alt="logo">`;
 
-  // Unica fuente de verdad: le pregunta a la base cual es el pago activo de
-  // esta cuenta ahora mismo. Se llama al conectar, cada vez que la base avisa
-  // un cambio, y de fondo cada tanto por si algun aviso se pierde.
+  // Que se esta mostrando ahora mismo: un yape (sale de la base, via
+  // syncCurrent) o un mensaje de chat de Kick resaltado (llega directo por
+  // broadcast, sin pasar por payments). Sirve para que un "no hay nada que
+  // mostrar" de payments no le pise el highlight de Kick, y viceversa.
+  let currentSource = null; // 'yape' | 'kick' | null
+
+  // Unica fuente de verdad para los yapes: le pregunta a la base cual es el
+  // pago activo de esta cuenta ahora mismo. Se llama al conectar, cada vez
+  // que la base avisa un cambio, y de fondo cada tanto por si algun aviso se pierde.
   async function syncCurrent() {
     const { data, error } = await sb.rpc('overlay_current', { p_key: OVERLAY_KEY });
     if (error) { console.error(error); return; }
@@ -212,9 +218,20 @@
       const sig = JSON.stringify(data);
       if (shown && shown._sig === sig) return;
       showCard(data, sig);
-    } else {
+      currentSource = 'yape';
+    } else if (currentSource !== 'kick') {
       hideAll();
+      currentSource = null;
     }
+  }
+
+  function handleKickBroadcast(payload) {
+    if (!payload) {
+      if (currentSource === 'kick') { hideAll(); currentSource = null; }
+      return;
+    }
+    showCard({ id: 'kick-live', name: payload.name, message: payload.message, source: 'kick' }, JSON.stringify(payload));
+    currentSource = 'kick';
   }
 
   async function connect() {
@@ -223,10 +240,12 @@
       return;
     }
     // Canal privado de broadcast: la base avisa por 'overlay-<key>' cada vez
-    // que cambian los pagos de esta cuenta (ver notify_overlay en SQL).
+    // que cambian los pagos de esta cuenta (ver notify_overlay en SQL), y el
+    // panel manda ahi mismo el highlight de chat de Kick (ver toggleKickHighlight en admin.html).
     await sb.realtime.setAuth();
     sb.channel('overlay-' + OVERLAY_KEY, { config: { private: true } })
       .on('broadcast', { event: 'sync' }, () => { syncCurrent(); })
+      .on('broadcast', { event: 'kick-msg' }, ({ payload }) => handleKickBroadcast(payload))
       .subscribe((status) => {
         if (status === 'SUBSCRIBED') syncCurrent();
       });

@@ -422,15 +422,6 @@
     background-size: 200% auto;
   }
   @keyframes shine { to { background-position: 200% center; } }
-  .kick-source-tag {
-    font-size: 11px;
-    font-weight: 900;
-    letter-spacing: .03em;
-    color: #06251f;
-    background: #53FC18;
-    border-radius: 999px;
-    padding: 4px 11px;
-  }
 
   .card-actions {
     grid-area: actions;
@@ -539,6 +530,8 @@
   }
   .kick-msg:hover { background: var(--purple-50); }
   .kick-msg:active { background: var(--purple-100); }
+  .kick-msg.kick-msg-active { background: var(--teal-soft); box-shadow: inset 3px 0 0 var(--teal); }
+  .kick-msg.kick-msg-active:hover { background: var(--teal-soft); }
   .kick-who {
     display: inline-flex;
     align-items: center;
@@ -1212,7 +1205,6 @@
       everDismissed: row.ever_dismissed,
       onOverlay: row.on_overlay,
       receivedAt: row.received_at ? new Date(row.received_at).getTime() : null,
-      source: row.source || 'yape',
     };
   }
 
@@ -1359,9 +1351,6 @@
     const initial = (p.name || '?').trim().charAt(0).toUpperCase();
     const amount = parseFloat(p.amount) || 0;
     const topBadge = amount >= 50 ? '<span class="top">★ TOP YAPE</span>' : '';
-    const amountBlock = p.source === 'kick'
-      ? '<div class="card-amount"><span class="kick-source-tag">KICK</span></div>'
-      : `<div class="card-amount"><span class="cur">S/</span><span class="val">${amountVal(p)}</span>${topBadge}</div>`;
     card.innerHTML = `
       <div class="card-avatar">${initial}</div>
       <div class="card-main">
@@ -1370,7 +1359,9 @@
         <span class="card-time">${timeText(p)}</span>
       </div>
       <div class="card-message">${p.message ? escapeHtml(p.message) : '<em>Sin mensaje</em>'}</div>
-      ${amountBlock}
+      <div class="card-amount">
+        <span class="cur">S/</span><span class="val">${amountVal(p)}</span>${topBadge}
+      </div>
       <div class="card-actions">${actionsFor(p)}</div>
     `;
     applyFilter();
@@ -1569,21 +1560,50 @@
     }).join('');
   }
 
-  // El overlay no sabe dibujar emotes de Kick: para el texto que se guarda
-  // en `payments.message` se deja solo el nombre del emote, sin el token.
+  // El overlay no sabe dibujar emotes de Kick: para el texto que se manda
+  // se deja solo el nombre del emote, sin el token.
   function kickPlainText(content) {
     return String(content || '').replace(/\[emote:\d+:([^\]]*)\]/g, '$1');
   }
 
-  async function sendKickMessageToOverlay(payload) {
-    const name = payload.sender?.username || 'Alguien';
-    const message = kickPlainText(payload.content);
-    const { data, error } = await sb.from('payments')
-      .insert({ name, message, amount: null, source: 'kick' })
-      .select().single();
-    if (error) { toast('No se pudo mostrar el mensaje'); console.error(error); return; }
-    const { error: err2 } = await sb.rpc('approve_payment', { target_id: data.id });
-    if (err2) { toast('No se pudo mostrar el mensaje'); console.error(err2); return; }
+  // Resaltar un mensaje de Kick NO toca payments ni la pestaña de
+  // pendientes: es un aviso en vivo aparte, por el canal privado del propio
+  // overlay. Un click lo muestra, un segundo click en el mismo lo quita.
+  let kickOverlayChannel = null;
+  let kickHighlightedEl = null;
+  let kickHighlightedMsgId = null;
+
+  function ensureKickOverlayChannel() {
+    if (kickOverlayChannel || !account) return kickOverlayChannel;
+    kickOverlayChannel = sb.channel('overlay-' + account.overlay_key, { config: { private: true } });
+    kickOverlayChannel.subscribe();
+    return kickOverlayChannel;
+  }
+
+  async function toggleKickHighlight(payload, el) {
+    const ch = ensureKickOverlayChannel();
+    if (!ch) { toast('No se pudo cargar tu cuenta, recarga la página'); return; }
+    const msgId = payload.id || `${payload.sender?.username}-${payload.created_at}`;
+
+    if (kickHighlightedMsgId === msgId) {
+      // Ya estaba resaltado este mismo mensaje: lo quitamos.
+      await ch.send({ type: 'broadcast', event: 'kick-msg', payload: null });
+      if (kickHighlightedEl) kickHighlightedEl.classList.remove('kick-msg-active');
+      kickHighlightedEl = null;
+      kickHighlightedMsgId = null;
+      toast('Mensaje quitado del overlay');
+      return;
+    }
+
+    await ch.send({
+      type: 'broadcast',
+      event: 'kick-msg',
+      payload: { name: payload.sender?.username || 'Alguien', message: kickPlainText(payload.content) },
+    });
+    if (kickHighlightedEl) kickHighlightedEl.classList.remove('kick-msg-active');
+    el.classList.add('kick-msg-active');
+    kickHighlightedEl = el;
+    kickHighlightedMsgId = msgId;
     toast('Mensaje mostrado en el overlay 💜');
   }
 
@@ -1598,7 +1618,7 @@
     div.className = 'kick-msg';
     div.title = 'Click para mostrar este mensaje en el overlay';
     div.innerHTML = `<span class="kick-who">${renderKickBadges(payload.sender?.identity?.badges)}<span class="kick-user"${color ? ` style="color:${escapeHtml(color)}"` : ''}>${escapeHtml(username)}:</span></span> ${renderKickContent(payload.content)}`;
-    div.addEventListener('click', () => sendKickMessageToOverlay(payload));
+    div.addEventListener('click', () => toggleKickHighlight(payload, div));
     log.appendChild(div);
     while (log.children.length > KICK_LOG_MAX) log.removeChild(log.firstChild);
     log.scrollTop = log.scrollHeight;
@@ -1651,6 +1671,8 @@
     if (kickWs) { kickWs.onclose = null; kickWs.close(); kickWs = null; }
     document.getElementById('kick-chat-section').style.display = 'none';
     document.getElementById('kick-chat-log').innerHTML = '';
+    kickHighlightedEl = null;
+    kickHighlightedMsgId = null;
   }
 
   const testSamples = [
