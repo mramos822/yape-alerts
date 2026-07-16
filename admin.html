@@ -899,8 +899,11 @@
     if (m.includes('already registered')) return 'Ese correo ya tiene una cuenta. Inicia sesión.';
     if (m.includes('at least 6')) return 'La contraseña debe tener al menos 6 caracteres.';
     if (m.includes('valid email')) return 'Escribe un correo válido.';
-    if (m.includes('rate limit') || m.includes('too many')) return 'Demasiados intentos. Espera un momento y vuelve a intentar.';
-    return 'No se pudo completar. Revisa los datos e intenta de nuevo.';
+    if (m.includes('rate limit') || m.includes('too many') || m.includes('security purposes')) return 'Demasiados intentos. Espera un momento y vuelve a intentar.';
+    if (m.includes('user not found')) return 'No hay ninguna cuenta con ese correo.';
+    // Mensaje sin traducir conocida: mostramos el original en vez de uno
+    // generico, para no esconder la causa real del error.
+    return (error && error.message) || 'No se pudo completar. Revisa los datos e intenta de nuevo.';
   }
 
   document.getElementById('auth-form').addEventListener('submit', async (e) => {
@@ -948,6 +951,9 @@
         if (error) { authError(friendlyAuthError(error)); return; }
         await startApp(data.session);
       }
+    } catch (err) {
+      console.error(err);
+      authError('Fallo la conexión con el servidor. Revisa tu internet e intenta de nuevo.');
     } finally {
       btn.disabled = false;
     }
