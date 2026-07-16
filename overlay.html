@@ -342,6 +342,20 @@
     }).join('');
   }
 
+  // Los emojis que scrapea la extension de YouTube (ver
+  // browser-extension/scraper.js) vienen como "[yt-emoji:src:alt]" porque
+  // innerText los pierde; se reemplazan por la imagen real.
+  function renderYtContent(content) {
+    return String(content || '').split(/(\[yt-emoji:[^:\]]*:[^\]]*\])/g).map((part) => {
+      const m = part.match(/^\[yt-emoji:([^:\]]*):([^\]]*)\]$/);
+      if (!m) return escapeHtml(part);
+      const src = decodeURIComponent(m[1]);
+      const alt = decodeURIComponent(m[2]);
+      if (!src) return escapeHtml(alt);
+      return `<img class="kick-emote" src="${escapeHtml(src)}" alt="${escapeHtml(alt)}" title="${escapeHtml(alt)}">`;
+    }).join('');
+  }
+
   async function connect() {
     if (!OVERLAY_KEY) {
       console.error('Falta la clave del overlay: usa el enlace que aparece en "Mis enlaces" del panel.');
@@ -438,7 +452,7 @@
       : escapeHtml(name);
     const textLine = isChatHighlight
       ? ((payment.content)
-          ? (isKick ? renderKickContent(payment.content) : escapeHtml(payment.content))
+          ? (isKick ? renderKickContent(payment.content) : renderYtContent(payment.content))
           : '<em>(sin mensaje)</em>')
       : (payment.message ? escapeHtml(payment.message) : '<em>(sin mensaje)</em>');
     el.innerHTML = `

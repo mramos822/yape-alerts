@@ -649,6 +649,7 @@
   .kick-badge-staff { background: linear-gradient(120deg, #2C1B36, #4E1E68); }
   .kick-badge-verified { background: linear-gradient(120deg, #14C6A4, #20E7B9); }
   .kick-badge-ambassador { background: linear-gradient(120deg, #B92E9C, #7B1FA2); }
+  .kick-badge-yt-superchat { background: linear-gradient(120deg, #03E7C0, #02B899); }
 
   /* ---------- Toast ---------- */
   .toast {
@@ -2499,6 +2500,30 @@
     return d.toLocaleTimeString('es-PE', { hour12: false });
   }
 
+  // La extension marca los emojis (nativos o del canal) que scrapea del DOM
+  // como "[yt-emoji:src:alt]" (ver extractMessageContent en
+  // browser-extension/scraper.js), porque innerText los pierde por
+  // completo. Se vuelven a dibujar como imagen, igual que los emotes de
+  // Kick (renderKickContent). Si el texto no trae ningun token (ej. viene
+  // de la API oficial), esto simplemente escapa el texto normal.
+  function renderYoutubeContent(content) {
+    return String(content || '').split(/(\[yt-emoji:[^:\]]*:[^\]]*\])/g).map((part) => {
+      const m = part.match(/^\[yt-emoji:([^:\]]*):([^\]]*)\]$/);
+      if (!m) return escapeHtml(part);
+      const src = decodeURIComponent(m[1]);
+      const alt = decodeURIComponent(m[2]);
+      if (!src) return escapeHtml(alt);
+      return `<img class="kick-emote" src="${escapeHtml(src)}" alt="${escapeHtml(alt)}" title="${escapeHtml(alt)}">`;
+    }).join('');
+  }
+
+  // Para guardar en payments (cola de superchats) no sirve el token con la
+  // URL cruda: se cambia por el alt (texto/shortcode del emoji) para que la
+  // tarjeta se vea bien con el escapeHtml normal que ya usa esa pestaña.
+  function stripYtEmojiTokens(content) {
+    return String(content || '').replace(/\[yt-emoji:[^:\]]*:([^\]]*)\]/g, (_, alt) => decodeURIComponent(alt));
+  }
+
   function renderYoutubeMessage(item) {
     const log = document.getElementById('youtube-chat-log');
     const empty = log.querySelector('.kick-chat-empty');
@@ -2510,9 +2535,9 @@
     const div = document.createElement('div');
     div.className = 'kick-msg';
     div.title = 'Click para mostrar este mensaje en el overlay';
-    const superchatTag = isSuperchat ? '<span class="kick-badge kick-badge-gifter">SUPERCHAT</span>' : '';
+    const superchatTag = isSuperchat ? '<span class="kick-badge kick-badge-yt-superchat">SUPERCHAT</span>' : '';
     const milestoneTag = ytMilestoneTag(item);
-    div.innerHTML = `<span class="kick-who"><span class="kick-msg-time">${escapeHtml(ytMessageTime(item))}</span>${renderYtBadges(ytBadgesFor(author), author.displayName)}${superchatTag}${milestoneTag}<span class="kick-user">${escapeHtml(author.displayName || '?')}:</span></span> ${escapeHtml((item.snippet && item.snippet.displayMessage) || '')}`;
+    div.innerHTML = `<span class="kick-who"><span class="kick-msg-time">${escapeHtml(ytMessageTime(item))}</span>${renderYtBadges(ytBadgesFor(author), author.displayName)}${superchatTag}${milestoneTag}<span class="kick-user">${escapeHtml(author.displayName || '?')}:</span></span> ${renderYoutubeContent((item.snippet && item.snippet.displayMessage) || '')}`;
     div.addEventListener('click', () => toggleYoutubeHighlight(item, div));
     log.appendChild(div);
     while (log.children.length > KICK_LOG_MAX) log.removeChild(log.firstChild);
@@ -2530,7 +2555,7 @@
       user_id: uid,
       name: author.displayName || 'Anónimo',
       amount: details.amountDisplayString || '',
-      message: details.userComment || (item.snippet && item.snippet.displayMessage) || '',
+      message: stripYtEmojiTokens(details.userComment || (item.snippet && item.snippet.displayMessage) || ''),
       source: 'youtube',
       status: 'pending',
       youtube_message_id: item.id,
