@@ -429,6 +429,17 @@
   const YT_TIER_COLORS = ['#2979FF', '#00E5F9', '#1DE9B6', '#FCCB2B', '#F17E05', '#E02766', '#DD2919'];
   const YT_USD_TIERS = [1, 2, 5, 10, 20, 50, 100];
 
+  // Tramos REALES confirmados a mano (no calculados por tasa de cambio),
+  // para las monedas donde se confirmo que YouTube usa un numero fijo que
+  // NO seguia el dolar de mercado (ARS confirmado: 100=amarillo, 1000=rojo,
+  // que da la secuencia 10/20/50/100/200/500/1000 -- ni cerca de lo que da
+  // el dolar libre real). Si en el futuro se confirma la tabla real de otra
+  // moneda volatil (TRY, NGN, etc.), agregarla aca en vez de confiar en el
+  // calculo por tasa de cambio de YT_CURRENCIES.
+  const YT_KNOWN_TIERS = {
+    ARS: [10, 20, 50, 100, 200, 500, 1000],
+  };
+
   // Todas las monedas en las que YouTube deja mandar un Super Chat/Super
   // Sticker (America, Europa, Asia, Oceania, Medio Oriente y Africa que
   // YouTube habilita). `rate` son unidades de esa moneda por 1 USD:
@@ -552,8 +563,15 @@
     // no hace falta aproximarla con tasa de cambio + redondeo.
     if (code === 'PEN') return tierColor(parseYoutubeAmount(amountText));
     const amount = parseYoutubeAmount(amountText);
-    const rate = YT_RATE_BY_CODE[code] || 1;
+    const knownTiers = YT_KNOWN_TIERS[code];
     let color = YT_TIER_COLORS[0];
+    if (knownTiers) {
+      for (let i = 0; i < knownTiers.length; i++) {
+        if (amount >= knownTiers[i]) color = YT_TIER_COLORS[i];
+      }
+      return color;
+    }
+    const rate = YT_RATE_BY_CODE[code] || 1;
     for (let i = 0; i < YT_USD_TIERS.length; i++) {
       const localTier = niceRound125(YT_USD_TIERS[i] * rate);
       if (amount >= localTier) color = YT_TIER_COLORS[i];

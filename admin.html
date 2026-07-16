@@ -625,6 +625,17 @@
   .kick-msg:active { background: var(--purple-100); }
   .kick-msg.kick-msg-active { background: var(--teal-soft); box-shadow: inset 3px 0 0 var(--teal); }
   .kick-msg.kick-msg-active:hover { background: var(--teal-soft); }
+  /* Un superchat no es un mensaje mas: se destaca con el mismo dorado que
+     el "ribbon" de DONATION del overlay, para que salte a la vista en medio
+     del chat comun y quede claro que clickearlo aprueba/muestra el pago
+     (no solo resalta el mensaje, como los demas). */
+  .kick-msg.kick-msg-superchat {
+    background: linear-gradient(120deg, rgba(191,149,63,.16), rgba(179,135,40,.10));
+    box-shadow: inset 3px 0 0 #bf953f;
+    font-weight: 800;
+  }
+  .kick-msg.kick-msg-superchat:hover { background: linear-gradient(120deg, rgba(191,149,63,.26), rgba(179,135,40,.18)); }
+  .kick-msg.kick-msg-superchat.kick-msg-active { box-shadow: inset 3px 0 0 var(--teal); }
   .kick-who {
     display: inline-flex;
     align-items: center;
@@ -1467,6 +1478,7 @@
       raw: row.raw,
       source: row.source,
       status: row.status,
+      youtube_message_id: row.youtube_message_id,
       everDismissed: row.ever_dismissed,
       onOverlay: row.on_overlay,
       receivedAt: row.received_at ? new Date(row.received_at).getTime() : null,
@@ -1479,6 +1491,11 @@
   const hintEl = document.getElementById('tab-hint');
   const cardEls = new Map();
   const paymentsById = new Map();
+  // Indice aparte para poder ir de "mensaje del chat de YouTube" (su
+  // youtube_message_id) a la fila de payments que le corresponde, sin tener
+  // que recorrer todo paymentsById cada vez que clickean un superchat en el
+  // log del chat (ver renderYoutubeMessage).
+  const paymentIdByYoutubeMsgId = new Map();
   let currentTab = 'pending';
   let toastTimer = null;
   const prevCounts = { pending: null, approved: null, rejected: null, youtube: null };
@@ -1606,6 +1623,7 @@
 
   function renderRow(p, opts = {}) {
     paymentsById.set(p.id, p);
+    if (p.youtube_message_id) paymentIdByYoutubeMsgId.set(p.youtube_message_id, p.id);
 
     let card = cardEls.get(p.id);
     const isNew = !card;
@@ -1729,6 +1747,8 @@
       setTimeout(() => card.remove(), 320);
     }
     cardEls.delete(id);
+    const p = paymentsById.get(id);
+    if (p && p.youtube_message_id) paymentIdByYoutubeMsgId.delete(p.youtube_message_id);
     paymentsById.delete(id);
     setTimeout(applyFilter, 320);
   }
@@ -2648,8 +2668,10 @@
     const type = item.snippet && item.snippet.type;
     const isSuperchat = type === 'superChatEvent' || type === 'superStickerEvent';
     const div = document.createElement('div');
-    div.className = 'kick-msg';
-    div.title = 'Click para mostrar este mensaje en el overlay';
+    div.className = isSuperchat ? 'kick-msg kick-msg-superchat' : 'kick-msg';
+    div.title = isSuperchat
+      ? 'Click para aprobar y mostrar este superchat en el overlay'
+      : 'Click para mostrar este mensaje en el overlay';
     const superchatTag = isSuperchat ? '<span class="kick-badge kick-badge-yt-superchat">SUPERCHAT</span>' : '';
     const milestoneTag = ytMilestoneTag(item);
     const badgesHtml = renderYtBadgeIcons(author) ?? renderYtBadges(ytBadgesFor(author), author.displayName);
@@ -2659,7 +2681,19 @@
     // actualiza solo apenas llega el dato real de la extension, en vez de
     // quedarse pegado con el chip de texto hasta el proximo mensaje nuevo.
     div.innerHTML = `<span class="kick-who"><span class="kick-msg-time">${escapeHtml(ytMessageTime(item))}</span><span class="kick-user">${escapeHtml(author.displayName || '?')}:</span><span class="yt-badges-slot" data-yt-author="${escapeHtml(author.displayName || '')}">${badgesHtml}</span>${superchatTag}${milestoneTag}</span> ${renderYoutubeContent((item.snippet && item.snippet.displayMessage) || '')}`;
-    div.addEventListener('click', () => toggleYoutubeHighlight(item, div));
+    // Un superchat ya entro solo a la cola de payments (insertYoutubeSuperchat,
+    // ver handleYoutubeMessage): clickearlo en el log hace exactamente lo
+    // mismo que apretar "Aprobar" en la pestaña YouTube del panel, en vez de
+    // resaltarlo como chat normal (toggleYoutubeHighlight).
+    div.addEventListener('click', () => {
+      if (isSuperchat) {
+        const paymentId = paymentIdByYoutubeMsgId.get(item.id);
+        if (paymentId) act(paymentId, 'approve');
+        else toast('Todavía se está guardando este superchat, esperá un segundo');
+        return;
+      }
+      toggleYoutubeHighlight(item, div);
+    });
     log.appendChild(div);
     while (log.children.length > KICK_LOG_MAX) log.removeChild(log.firstChild);
     if (wasNearBottom) log.scrollTop = log.scrollHeight;
