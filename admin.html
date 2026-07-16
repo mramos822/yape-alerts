@@ -1177,7 +1177,7 @@
       account.kick_username = null;
       account.kick_chatroom_id = null;
       toast('Chat de Kick desactivado');
-      disconnectKickChat();
+      disconnectKickChat(true);
       return;
     }
 
@@ -1685,7 +1685,10 @@
     return d.toLocaleTimeString('es-PE', { hour12: false });
   }
 
-  function addKickMessage(payload) {
+  // Solo pinta el mensaje en el DOM, sin tocar la persistencia: lo usan
+  // tanto los mensajes nuevos (addKickMessage) como la restauracion del
+  // historial guardado al recargar la pagina (ver connectKickChat).
+  function renderKickMessage(payload) {
     const log = document.getElementById('kick-chat-log');
     const empty = log.querySelector('.kick-chat-empty');
     if (empty) empty.remove();
@@ -1703,6 +1706,41 @@
     // Precarga la foto de perfil apenas se ve el mensaje, no recien al
     // clickear, para que resaltarlo salga instantaneo la mayoria de las veces.
     resolveKickAvatar(payload.sender?.slug || payload.sender?.username);
+  }
+
+  // Historial persistido en localStorage por chatroom, para que al
+  // recargar la pagina (F5, cerrar y volver a abrir la pestana) los
+  // mensajes ya mostrados sigan ahi en vez de desaparecer.
+  const KICK_LOG_STORAGE_PREFIX = 'yape-alert-kick-log-';
+  let kickLogEntries = [];
+  let kickCurrentChatroomId = null;
+
+  function kickLogStorageKey(chatroomId) {
+    return KICK_LOG_STORAGE_PREFIX + chatroomId;
+  }
+
+  function loadPersistedKickLog(chatroomId) {
+    try {
+      return JSON.parse(localStorage.getItem(kickLogStorageKey(chatroomId)) || '[]');
+    } catch {
+      return [];
+    }
+  }
+
+  function savePersistedKickLog() {
+    if (!kickCurrentChatroomId) return;
+    try {
+      localStorage.setItem(kickLogStorageKey(kickCurrentChatroomId), JSON.stringify(kickLogEntries));
+    } catch (err) {
+      console.error(err);
+    }
+  }
+
+  function addKickMessage(payload) {
+    renderKickMessage(payload);
+    kickLogEntries.push(payload);
+    if (kickLogEntries.length > KICK_LOG_MAX) kickLogEntries = kickLogEntries.slice(-KICK_LOG_MAX);
+    savePersistedKickLog();
   }
 
   // Pausar solo detiene lo que se pinta en pantalla: el WebSocket sigue
@@ -1733,9 +1771,16 @@
 
   function connectKickChat(chatroomId) {
     disconnectKickChat();
+    kickCurrentChatroomId = chatroomId;
     document.getElementById('kick-chat-section').style.display = '';
     const log = document.getElementById('kick-chat-log');
-    log.innerHTML = '<div class="kick-chat-empty">Conectando al chat de Kick…</div>';
+    kickLogEntries = loadPersistedKickLog(chatroomId);
+    if (kickLogEntries.length) {
+      log.innerHTML = '';
+      kickLogEntries.forEach(renderKickMessage);
+    } else {
+      log.innerHTML = '<div class="kick-chat-empty">Conectando al chat de Kick…</div>';
+    }
     setKickStatus('Conectando…', false);
 
     kickWs = new WebSocket(KICK_PUSHER_URL);
@@ -1778,7 +1823,10 @@
     kickWs.onerror = () => { if (kickWs) kickWs.close(); };
   }
 
-  function disconnectKickChat() {
+  // clearPersisted solo se pasa en true cuando el streamer desactiva el
+  // chat de Kick a proposito (ver saveKickChatroom); al reconectar o
+  // cambiar de pestana el historial guardado debe seguir intacto.
+  function disconnectKickChat(clearPersisted) {
     clearTimeout(kickReconnectTimer);
     if (kickWs) { kickWs.onclose = null; kickWs.close(); kickWs = null; }
     document.getElementById('kick-chat-section').style.display = 'none';
@@ -1788,6 +1836,11 @@
     kickPaused = false;
     kickPausedQueue = [];
     updateKickPauseBtn();
+    if (clearPersisted && kickCurrentChatroomId) {
+      try { localStorage.removeItem(kickLogStorageKey(kickCurrentChatroomId)); } catch (err) { console.error(err); }
+    }
+    kickLogEntries = [];
+    kickCurrentChatroomId = null;
   }
 
   const testSamples = [
