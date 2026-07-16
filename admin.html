@@ -578,6 +578,21 @@
   .kick-pause-btn svg { width: 13px; height: 13px; }
   .kick-pause-btn:hover { color: var(--ink); }
   .kick-pause-btn.paused { color: #fff; background: var(--purple); }
+  .yt-ext-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11.5px;
+    font-weight: 800;
+    color: var(--ink-mute);
+    background: var(--card);
+    border-radius: 999px;
+    padding: 4px 10px;
+    box-shadow: var(--shadow);
+  }
+  .yt-ext-status .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ink-mute); flex-shrink: 0; }
+  .yt-ext-status.open .dot { background: var(--teal); }
+  .yt-ext-status.open { color: var(--teal); }
   .kick-msg-time {
     font-size: 11.5px;
     font-weight: 700;
@@ -1026,6 +1041,13 @@
       <div class="kick-chat-head">
         <span class="kick-dot" id="youtube-chat-dot"></span>
         <span id="youtube-chat-status">Chat de YouTube</span>
+        <span class="yt-ext-status" id="yt-ext-status" title="Si la extension del navegador esta instalada, esto muestra si su pestaña del chat popout esta abierta (necesaria para el tier real y los iconos de las insignias)">
+          <span class="dot" id="yt-ext-dot"></span> Extensión: sin detectar
+        </span>
+        <button id="youtube-open-popout-btn" class="kick-pause-btn" onclick="openYoutubePopoutManually()" title="Abrir a mano el chat popout de YouTube (por si no se abrio solo)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14 21 3"/></svg>
+          Abrir chat
+        </button>
         <button id="youtube-pause-btn" class="kick-pause-btn" onclick="toggleYoutubePause()" title="Pausar el chat">
           <svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>
           Pausar
@@ -2208,6 +2230,7 @@
   }
   let ytKeyIndex = 0;
   let ytLiveChatId = null;
+  let ytCurrentVideoId = null;
   let ytNextPageToken = null;
   let ytPollTimer = null;
   let ytPaused = false;
@@ -2288,6 +2311,7 @@
   async function connectToYoutubeVideo(videoId, auto) {
     const { liveChatId, title } = await resolveLiveChatId(videoId);
     ytLiveChatId = liveChatId;
+    ytCurrentVideoId = videoId;
     ytNextPageToken = null;
     ytAutoConnected = !!auto;
     document.getElementById('youtube-connect-section').style.display = 'none';
@@ -2412,10 +2436,29 @@
   window.addEventListener('message', (event) => {
     if (event.source !== window) return;
     const data = event.data;
-    if (!data || data.source !== 'yape-alert-ext' || !data.name) return;
+    if (!data || data.source !== 'yape-alert-ext') return;
+    if (data.type === 'yt-popout-status') { updateYtExtStatus(data.open); return; }
+    if (!data.name) return;
     ytTierCache.set(data.name, data);
     if (data.type === 'yt-message') handleExtensionYoutubeMessage(data);
   });
+
+  function updateYtExtStatus(open) {
+    const el = document.getElementById('yt-ext-status');
+    if (!el) return;
+    el.classList.toggle('open', !!open);
+    el.innerHTML = `<span class="dot"></span> ${open ? 'Extensión: pestaña abierta' : 'Extensión: pestaña cerrada'}`;
+  }
+
+  // Boton de respaldo por si la apertura automatica de la pestaña fallo
+  // (ej. la extension no estaba instalada todavia cuando se conecto el
+  // chat, o el permiso de "URLs de archivos" no estaba activado).
+  function openYoutubePopoutManually() {
+    if (!ytCurrentVideoId) { toast('Conectate primero a un chat de YouTube'); return; }
+    postToYoutubeExtension({ source: 'yape-alert-panel', type: 'yt-request-open-popout', videoId: ytCurrentVideoId });
+    toast('Pidiendo a la extensión que abra el chat popout…');
+  }
+  window.openYoutubePopoutManually = openYoutubePopoutManually;
 
   // Convierte lo que scrapea la extension a la misma forma que devuelve la
   // API oficial (snippet/authorDetails), asi se reusa exactamente el mismo
@@ -2682,6 +2725,7 @@
     ytExtensionIdleTimer = null;
     ytExtensionActive = false;
     ytLiveChatId = null;
+    ytCurrentVideoId = null;
     ytNextPageToken = null;
     ytAutoConnected = false;
     ytPaused = false;
