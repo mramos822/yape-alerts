@@ -141,7 +141,7 @@
     height: 18px;
     width: 18px;
     vertical-align: middle;
-    margin-right: 5px;
+    margin-left: 5px;
     background-size: contain;
     background-repeat: no-repeat;
     background-position: center;
@@ -479,7 +479,7 @@
         ? `<div class="donation"><div class="donation-title">DONATION</div><div class="donation-subtitle">${escapeHtml(payment.amount || '')}</div></div>`
         : `<div class="donation"><div class="donation-title">YAPE</div><div class="donation-subtitle">S/. ${payment.amount || '0.00'}</div></div>`;
     const nameLine = isChatHighlight
-      ? `${isKick ? renderKickBadges(payment.badges) : renderYtBadgesCombined(payment.badges, payment.badgeImages)}${escapeHtml(name)}`
+      ? `${escapeHtml(name)}${isKick ? renderKickBadges(payment.badges) : renderYtBadgesCombined(payment.badges, payment.badgeImages)}`
       : escapeHtml(name);
     const textLine = isChatHighlight
       ? ((payment.content)
