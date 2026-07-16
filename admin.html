@@ -1786,9 +1786,17 @@
 
   async function act(id, action) {
     if (action === 'approve') {
-      await clearChatHighlights();
+      // approve_payment va ANTES que clearChatHighlights a proposito: el
+      // overlay ignora cualquier aviso de "hay un pago para mostrar"
+      // mientras crea que un highlight de chat sigue activo (ver
+      // syncCurrent). Si limpiaramos el highlight primero, el aviso de
+      // "pago aprobado" podria llegar mientras el overlay TODAVIA no se
+      // entero de que el highlight se fue, y lo ignoraria. Aprobando
+      // primero, el pago ya esta listo en la base para cuando el clear
+      // explicito llegue despues y dispare el proximo syncCurrent().
       const { error } = await sb.rpc('approve_payment', { target_id: id });
       if (error) { toast('No se pudo aprobar'); console.error(error); return; }
+      await clearChatHighlights();
       toast('¡Aprobado! Ya sale en el overlay 🎉');
     } else if (action === 'reject') {
       const { error } = await sb.from('payments').update({ status: 'rejected' }).eq('id', id);
