@@ -1560,12 +1560,6 @@
     }).join('');
   }
 
-  // El overlay no sabe dibujar emotes de Kick: para el texto que se manda
-  // se deja solo el nombre del emote, sin el token.
-  function kickPlainText(content) {
-    return String(content || '').replace(/\[emote:\d+:([^\]]*)\]/g, '$1');
-  }
-
   // Resaltar un mensaje de Kick NO toca payments ni la pestaña de
   // pendientes: es un aviso en vivo aparte, por el canal privado del propio
   // overlay. Un click lo muestra, un segundo click en el mismo lo quita.
@@ -1598,7 +1592,11 @@
     await ch.send({
       type: 'broadcast',
       event: 'kick-msg',
-      payload: { name: payload.sender?.username || 'Alguien', message: kickPlainText(payload.content) },
+      payload: {
+        name: payload.sender?.username || 'Alguien',
+        content: payload.content || '',
+        badges: payload.sender?.identity?.badges || [],
+      },
     });
     if (kickHighlightedEl) kickHighlightedEl.classList.remove('kick-msg-active');
     el.classList.add('kick-msg-active');

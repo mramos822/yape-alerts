@@ -129,6 +129,24 @@
     opacity: 0.75;
   }
 
+  .kick-emote {
+    height: 26px;
+    width: auto;
+    vertical-align: middle;
+    margin: 0 2px;
+  }
+
+  .kick-badge-icon {
+    display: inline-block;
+    height: 18px;
+    width: 18px;
+    vertical-align: middle;
+    margin-right: 5px;
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+  }
+
   .donation {
     position: absolute;
     top: 50px;
@@ -232,8 +250,42 @@
       if (currentSource === 'kick') { hideAll(); currentSource = null; }
       return;
     }
-    showCard({ id: 'kick-live', name: payload.name, message: payload.message, source: 'kick' }, JSON.stringify(payload));
+    showCard({ id: 'kick-live', name: payload.name, content: payload.content, badges: payload.badges, source: 'kick' }, JSON.stringify(payload));
     currentSource = 'kick';
+  }
+
+  // Mismo mapeo de insignias que admin.html (public/kick-badges/*.png,
+  // recortadas a mano de kick.com: no hay CDN publico con estos iconos).
+  const KICK_BADGES = {
+    broadcaster: { icon: 'broadcaster.png', text: 'Streamer' },
+    moderator:   { icon: 'moderator.png', text: 'MOD' },
+    vip:         { icon: 'vip.png', text: 'VIP' },
+    og:          { icon: 'og.png', text: 'OG' },
+    founder:     { icon: 'founder.png', text: 'Founder' },
+    subscriber:  { icon: 'subscriber.png', text: 'SUB' },
+    sub_gifter:  { icon: 'sub_gifter.png', text: 'Gifter' },
+    verified:    { icon: 'verified.png', text: '✓' },
+  };
+
+  function renderKickBadges(badges) {
+    if (!Array.isArray(badges) || !badges.length) return '';
+    return badges.map((b) => {
+      const info = KICK_BADGES[b.type];
+      if (!info) return '';
+      const title = escapeHtml(b.text || b.type || '');
+      return `<span class="kick-badge-icon" style="background-image:url('kick-badges/${info.icon}')" title="${title}"></span>`;
+    }).join('');
+  }
+
+  // El contenido trae los emotes inline como "[emote:ID:Nombre]"; se
+  // reemplazan por la imagen real del CDN publico de Kick.
+  function renderKickContent(content) {
+    return String(content || '').split(/(\[emote:\d+:[^\]]*\])/g).map((part) => {
+      const m = part.match(/^\[emote:(\d+):([^\]]*)\]$/);
+      if (!m) return escapeHtml(part);
+      const [, id, name] = m;
+      return `<img class="kick-emote" src="https://files.kick.com/emotes/${id}/fullsize" alt="${escapeHtml(name)}" title="${escapeHtml(name)}">`;
+    }).join('');
   }
 
   async function connect() {
@@ -304,12 +356,18 @@
     const donation = isKick
       ? ''
       : `<div class="donation"><div class="donation-title">YAPE</div><div class="donation-subtitle">S/. ${payment.amount || '0.00'}</div></div>`;
+    const nameLine = isKick
+      ? `${renderKickBadges(payment.badges)}${escapeHtml(name)}`
+      : escapeHtml(name);
+    const textLine = isKick
+      ? (payment.content ? renderKickContent(payment.content) : '<em>(sin mensaje)</em>')
+      : (payment.message ? escapeHtml(payment.message) : '<em>(sin mensaje)</em>');
     el.innerHTML = `
       <div class="hl-message">
         <div class="hl-img">${avatar}</div>
-        <div class="hl-name">${escapeHtml(name)}</div>
+        <div class="hl-name">${nameLine}</div>
         ${donation}
-        <div class="text">${payment.message ? escapeHtml(payment.message) : '<em>(sin mensaje)</em>'}</div>
+        <div class="text">${textLine}</div>
       </div>
     `;
     el._sig = sig || JSON.stringify(payment);
