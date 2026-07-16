@@ -1679,6 +1679,7 @@
       </div>
       <div class="card-actions">${actionsFor(p)}</div>
     `;
+    if (window.twemoji) twemoji.parse(card);
     applyFilter();
   }
 
@@ -2000,12 +2001,18 @@
     el.classList.add('kick-msg-active');
     kickHighlightedEl = el;
     kickHighlightedMsgId = msgId;
-    await clearOverlayPayment();
 
     const avatar = await resolveKickAvatar(payload.sender?.slug || payload.sender?.username);
     // Si en el medio se clickeo otro mensaje, no pisar ese highlight mas nuevo.
     if (kickHighlightedMsgId !== msgId) return;
 
+    // El broadcast va ANTES de tocar payments a proposito: el overlay
+    // reemplaza cualquier tarjeta que este mostrando apenas le llega este
+    // mensaje (ver showCard), asi que mandarlo primero garantiza que el
+    // highlight gane la carrera. Si clearOverlayPayment fuera primero, el
+    // aviso de "ya no queda nada en payments" (dispara solo, por un canal
+    // aparte) a veces le ganaba de mano al broadcast y el overlay se quedaba
+    // sin mostrar nada hasta el proximo click.
     await ch.send({
       type: 'broadcast',
       event: 'kick-msg',
@@ -2017,6 +2024,7 @@
       },
     });
     toast('Mensaje mostrado en el overlay 💜');
+    await clearOverlayPayment();
   }
 
   // Hora local del mensaje (Kick manda created_at en ISO); si no viene, se
@@ -2809,7 +2817,6 @@
     el.classList.add('kick-msg-active');
     ytHighlightedEl = el;
     ytHighlightedMsgId = msgId;
-    await clearOverlayPayment();
     const author = item.authorDetails || {};
     // Los iconos de mod/verificado (mask-image, ver browser-extension/) son
     // un data:image/svg+xml pesado que rompia el broadcast entero en
@@ -2820,6 +2827,8 @@
     const safeBadgeImages = (author.badgeImages || []).filter(
       (b) => b.src && !b.isMask && !b.bgPosition && !b.src.startsWith('data:')
     );
+    // El broadcast va ANTES de tocar payments a proposito, ver el mismo
+    // comentario en toggleKickHighlight.
     await ch.send({
       type: 'broadcast',
       event: 'yt-msg',
@@ -2832,6 +2841,7 @@
       },
     });
     toast('Mensaje mostrado en el overlay 💜');
+    await clearOverlayPayment();
   }
 
   function updateYoutubePauseBtn() {
