@@ -317,10 +317,14 @@
   }
 
   // Insignias de YouTube: llegan como strings simples ('owner'/'moderator'/
-  // 'member'/'verified', ver ytBadgesFor en admin.html), no como objetos con
-  // icono real (no hay sheet de YouTube): se pintan como chip de color.
+  // 'member'/'verified', ver ytBadgesFor en admin.html). Owner no tiene un
+  // icono propio (se pinta como chip de color); moderador y verificado son
+  // siempre el mismo icono en cualquier canal, asi que se guardaron una vez
+  // como archivo (public/kick-badges/) en vez de depender del broadcast
+  // (esos iconos vienen pesados como data:image y rompian el mensaje).
   const YT_BADGE_LABEL = { owner: 'STREAMER', moderator: 'MOD', member: 'MIEMBRO', verified: '✓' };
   const YT_BADGE_COLOR = { owner: '#E5484D', moderator: '#14C6A4', member: '#8B34A8', verified: '#20E7B9' };
+  const YT_STATIC_BADGE_ICON = { moderator: 'yt-moderator.png', verified: 'yt-verified.png' };
 
   // El panel solo manda aca el icono real de un badge cuando es una URL de
   // imagen liviana (ej. el badge de miembro elegido por el canal): los
@@ -335,6 +339,9 @@
     if (!Array.isArray(badges) || !badges.length) return '';
     return badges.map((b) => {
       const label = YT_BADGE_LABEL[b] || String(b || '').slice(0, 4).toUpperCase();
+      if (YT_STATIC_BADGE_ICON[b]) {
+        return `<img class="kick-badge-icon" src="kick-badges/${YT_STATIC_BADGE_ICON[b]}" alt="${escapeHtml(label)}" title="${escapeHtml(label)}">`;
+      }
       const color = YT_BADGE_COLOR[b] || '#6E2D8F';
       return `<span class="kick-badge-icon" style="width:auto;padding:0 4px;background:${color};color:#fff;font-size:8px;font-weight:800;display:inline-flex;align-items:center;justify-content:center;border-radius:4px;" title="${escapeHtml(label)}">${escapeHtml(label)}</span>`;
     }).join('');

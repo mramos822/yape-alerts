@@ -2426,6 +2426,11 @@
   // son solo gradientes por rol, no imagenes especificas de Kick.
   const YT_BADGE_LABEL = { owner: 'STREAMER', moderator: 'MOD', member: 'MIEMBRO', verified: '✓' };
   const YT_BADGE_CLASS = { owner: 'broadcaster', moderator: 'moderator', member: 'subscriber', verified: 'verified' };
+  // moderador y verificado son siempre el mismo icono en cualquier canal de
+  // YouTube (a diferencia del de miembro, que elige cada canal el suyo), asi
+  // que se guardaron una sola vez como archivo (public/kick-badges/) en vez
+  // de depender de la extension/broadcast para tenerlos.
+  const YT_STATIC_BADGE_ICON = { moderator: 'yt-moderator.png', verified: 'yt-verified.png' };
 
   // La extension opcional del navegador (ver browser-extension/) lee el
   // tier real de un miembro directo del DOM del chat de YouTube (la API
@@ -2528,6 +2533,9 @@
         if (cached && cached.tier) {
           return `<span class="kick-badge kick-badge-subscriber" title="Tier real via extension del navegador">${escapeHtml(cached.tier)}</span>`;
         }
+      }
+      if (YT_STATIC_BADGE_ICON[b]) {
+        return `<img class="yt-badge-icon" src="kick-badges/${YT_STATIC_BADGE_ICON[b]}" alt="${escapeHtml(YT_BADGE_LABEL[b] || b)}" title="${escapeHtml(YT_BADGE_LABEL[b] || b)}">`;
       }
       return `<span class="kick-badge kick-badge-${YT_BADGE_CLASS[b] || 'other'}">${YT_BADGE_LABEL[b] || b}</span>`;
     }).join('');
