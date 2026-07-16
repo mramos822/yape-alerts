@@ -1575,15 +1575,17 @@
   }
 
   function tabOf(p) {
-    // Los superchats de YouTube tienen su propia pestaña, separada de las
-    // 3 de Yapes, sin importar el status (por eso va primero: "Vaciar
-    // historial" y las demas funciones de Yape ya los excluyen solas).
-    if (p.source === 'youtube') return 'youtube';
-    // Una vez que un pago pasa por "Aprobados" (fue quitado del overlay al
-    // menos una vez), se queda ahi para siempre, sin importar si se vuelve
-    // a aprobar/quitar despues.
+    // Una vez que un pago (yape O superchat) pasa por "Aprobados" (fue
+    // quitado del overlay al menos una vez) o se rechaza, se va a esa
+    // pestaña compartida para siempre, sin importar la fuente ni si se
+    // vuelve a aprobar/quitar despues -- se queda ahi como historial, igual
+    // que un yape.
     if (p.status === 'rejected') return 'rejected';
     if (p.everDismissed) return 'approved';
+    // Mientras un superchat todavia esta pendiente/en vivo (no paso por
+    // "Aprobados" ni fue rechazado todavia), vive en su propia pestaña,
+    // separada de los yapes pendientes, para que sea facil verlo llegar.
+    if (p.source === 'youtube') return 'youtube';
     return 'pending';
   }
 
@@ -1738,21 +1740,27 @@
   // cambiado a mostrar el pago. Se llama antes de aprobar/mostrar un pago,
   // para que activar uno apague al otro (en los dos sentidos: ver tambien
   // clearOverlayPayment, que llaman toggleKickHighlight/toggleYoutubeHighlight).
+  async function clearKickHighlight() {
+    if (!kickHighlightedMsgId) return;
+    const ch = ensureKickOverlayChannel();
+    if (ch) await ch.send({ type: 'broadcast', event: 'kick-msg', payload: { clear: true } });
+    if (kickHighlightedEl) kickHighlightedEl.classList.remove('kick-msg-active');
+    kickHighlightedEl = null;
+    kickHighlightedMsgId = null;
+  }
+
+  async function clearYtHighlight() {
+    if (!ytHighlightedMsgId) return;
+    const ch = ensureYtOverlayChannel();
+    if (ch) await ch.send({ type: 'broadcast', event: 'yt-msg', payload: { clear: true } });
+    if (ytHighlightedEl) ytHighlightedEl.classList.remove('kick-msg-active');
+    ytHighlightedEl = null;
+    ytHighlightedMsgId = null;
+  }
+
   async function clearChatHighlights() {
-    if (kickHighlightedMsgId) {
-      const ch = ensureKickOverlayChannel();
-      if (ch) await ch.send({ type: 'broadcast', event: 'kick-msg', payload: { clear: true } });
-      if (kickHighlightedEl) kickHighlightedEl.classList.remove('kick-msg-active');
-      kickHighlightedEl = null;
-      kickHighlightedMsgId = null;
-    }
-    if (ytHighlightedMsgId) {
-      const ch = ensureYtOverlayChannel();
-      if (ch) await ch.send({ type: 'broadcast', event: 'yt-msg', payload: { clear: true } });
-      if (ytHighlightedEl) ytHighlightedEl.classList.remove('kick-msg-active');
-      ytHighlightedEl = null;
-      ytHighlightedMsgId = null;
-    }
+    await clearKickHighlight();
+    await clearYtHighlight();
   }
 
   // La otra mitad de clearChatHighlights: apaga el pago que estuviera en el
@@ -1810,7 +1818,7 @@
       .filter((p) => tabOf(p) === 'approved' || tabOf(p) === 'rejected')
       .map((p) => p.id);
     if (ids.length === 0) { toast('No hay nada que borrar ahí'); return; }
-    if (!confirm(`¿Borrar ${ids.length} pago(s) aprobado(s)/rechazado(s)? No se puede deshacer.`)) return;
+    if (!confirm(`¿Borrar ${ids.length} pago(s)/superchat(s) aprobado(s) o rechazado(s)? No se puede deshacer.`)) return;
     const { error } = await sb.from('payments').delete().in('id', ids);
     if (error) { toast('No se pudo limpiar el historial'); console.error(error); return; }
     toast('Historial limpiado');
@@ -2024,6 +2032,7 @@
       },
     });
     toast('Mensaje mostrado en el overlay 💜');
+    await clearYtHighlight();
     await clearOverlayPayment();
   }
 
@@ -2841,6 +2850,7 @@
       },
     });
     toast('Mensaje mostrado en el overlay 💜');
+    await clearKickHighlight();
     await clearOverlayPayment();
   }
 
