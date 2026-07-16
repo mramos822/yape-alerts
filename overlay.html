@@ -246,7 +246,7 @@
   }
 
   function handleKickBroadcast(payload) {
-    if (!payload) {
+    if (!payload || payload.clear) {
       if (currentSource === 'kick') { hideAll(); currentSource = null; }
       return;
     }

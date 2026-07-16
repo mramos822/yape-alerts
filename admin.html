@@ -1603,7 +1603,7 @@
 
     if (kickHighlightedMsgId === msgId) {
       // Ya estaba resaltado este mismo mensaje: lo quitamos.
-      await ch.send({ type: 'broadcast', event: 'kick-msg', payload: null });
+      await ch.send({ type: 'broadcast', event: 'kick-msg', payload: { clear: true } });
       if (kickHighlightedEl) kickHighlightedEl.classList.remove('kick-msg-active');
       kickHighlightedEl = null;
       kickHighlightedMsgId = null;
