@@ -521,6 +521,7 @@
   .kick-msg .kick-user { font-weight: 900; color: var(--purple); }
   .kick-chat-empty { color: var(--ink-mute); font-size: 13.5px; font-weight: 700; padding: 6px 2px; }
   .kick-emote { height: 22px; width: auto; vertical-align: middle; margin: 0 1px; }
+  .kick-badge-icon { height: 16px; width: auto; vertical-align: middle; margin-right: 4px; }
   .kick-badge {
     display: inline-block;
     font-size: 9.5px;
@@ -1494,25 +1495,29 @@
     document.getElementById('kick-chat-dot').classList.toggle('live', !!live);
   }
 
-  // Insignias que manda Kick en sender.identity.badges: no hay endpoint
-  // publico con los iconos reales, asi que se dibujan como chips propios.
+  // Insignias que manda Kick en sender.identity.badges. Para las que
+  // tenemos el icono real (recortado a mano de kick.com, ver
+  // public/kick-badges/) se muestra la imagen; para el resto, un chip de
+  // texto de respaldo.
   const KICK_BADGES = {
-    broadcaster: { text: 'Streamer', cls: 'broadcaster' },
-    moderator:   { text: 'MOD', cls: 'moderator' },
-    vip:         { text: 'VIP', cls: 'vip' },
-    og:          { text: 'OG', cls: 'og' },
-    founder:     { text: 'Founder', cls: 'founder' },
-    subscriber:  { text: 'SUB', cls: 'subscriber' },
-    sub_gifter:  { text: 'Gifter', cls: 'gifter' },
+    broadcaster: { icon: 'broadcaster.png', text: 'Streamer', cls: 'broadcaster' },
+    moderator:   { icon: 'moderator.png', text: 'MOD', cls: 'moderator' },
+    vip:         { icon: 'vip.png', text: 'VIP', cls: 'vip' },
+    og:          { icon: 'og.png', text: 'OG', cls: 'og' },
+    founder:     { icon: 'founder.png', text: 'Founder', cls: 'founder' },
+    subscriber:  { icon: 'subscriber.png', text: 'SUB', cls: 'subscriber' },
+    sub_gifter:  { icon: 'sub_gifter.png', text: 'Gifter', cls: 'gifter' },
+    verified:    { icon: 'verified.png', text: '✓', cls: 'verified' },
     staff:       { text: 'Staff', cls: 'staff' },
-    verified:    { text: '✓', cls: 'verified' },
   };
 
   function renderKickBadges(badges) {
     if (!Array.isArray(badges) || !badges.length) return '';
     return badges.map((b) => {
       const info = KICK_BADGES[b.type] || { text: (b.text || b.type || '?').slice(0, 4).toUpperCase(), cls: 'other' };
-      return `<span class="kick-badge kick-badge-${info.cls}" title="${escapeHtml(b.text || b.type || '')}">${info.text}</span>`;
+      const title = escapeHtml(b.text || b.type || '');
+      if (info.icon) return `<img class="kick-badge-icon" src="kick-badges/${info.icon}" alt="${title}" title="${title}">`;
+      return `<span class="kick-badge kick-badge-${info.cls}" title="${title}">${info.text}</span>`;
     }).join('');
   }
 
