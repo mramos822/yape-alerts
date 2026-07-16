@@ -2414,6 +2414,11 @@
   // saber si puedo desconectar sola cuando el directo termine (ver
   // stopYoutubeChannelWatcher) sin pisar una conexion manual del streamer.
   let ytAutoConnected = false;
+  // Hay dos watchers corriendo en paralelo (el oficial de 5 min y el
+  // gratis de 20s, ver checkYoutubeChannelLive/checkYoutubeLiveViaProxy):
+  // sin este candado, los dos podrian detectar "no conectado todavia" al
+  // mismo tiempo y disparar dos conexiones para el mismo directo.
+  let ytAutoConnecting = false;
 
   async function connectToYoutubeVideo(videoId, auto) {
     const { liveChatId, title } = await resolveLiveChatId(videoId);
@@ -2501,7 +2506,7 @@
     // Si ya hay un chat conectado (a mano o por este mismo watcher), no
     // gastamos otra llamada de 100 unidades para "confirmar" lo que ya
     // sabemos; solo watcheamos mientras esta desconectado.
-    if (ytLiveChatId) return;
+    if (ytLiveChatId || ytAutoConnecting) return;
     try {
       const data = await callYoutubeApi('search', {
         part: 'snippet',
@@ -2510,7 +2515,38 @@
         type: 'video',
       });
       const videoId = data.items && data.items[0] && data.items[0].id && data.items[0].id.videoId;
-      if (videoId) await connectToYoutubeVideo(videoId, true);
+      if (videoId && !ytLiveChatId && !ytAutoConnecting) {
+        ytAutoConnecting = true;
+        try { await connectToYoutubeVideo(videoId, true); } finally { ytAutoConnecting = false; }
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  }
+
+  // Chequeo gratis (sin cuota) de si el canal esta en vivo, vía una Edge
+  // Function propia (supabase/functions/youtube-live-check) que lee la
+  // pagina publica youtube.com/<canal>/live server-side: no llama para
+  // nada a la Data API, asi que se puede consultar mucho mas seguido que
+  // los 5 min del chequeo oficial de arriba. Ese chequeo oficial (100
+  // unidades) se deja intacto como red de seguridad por si este metodo
+  // (que depende de que YouTube no le cambie el formato a esa pagina)
+  // alguna vez deja de funcionar.
+  let ytLiveProxyTimer = null;
+
+  async function checkYoutubeLiveViaProxy() {
+    if (!account || !account.youtube_channel_id) return;
+    if (ytLiveChatId || ytAutoConnecting) return;
+    try {
+      const res = await fetch(
+        `${SUPABASE_URL}/functions/v1/youtube-live-check?channelId=${encodeURIComponent(account.youtube_channel_id)}`,
+        { headers: { apikey: SUPABASE_ANON_KEY } }
+      );
+      const data = await res.json();
+      if (data && data.live && data.videoId && !ytLiveChatId && !ytAutoConnecting) {
+        ytAutoConnecting = true;
+        try { await connectToYoutubeVideo(data.videoId, true); } finally { ytAutoConnecting = false; }
+      }
     } catch (err) {
       console.error(err);
     }
@@ -2524,6 +2560,8 @@
     // sin que arranque el directo, un intervalo mas corto se come la cuota
     // del dia antes de que el streamer llegue a transmitir.
     ytChannelWatchTimer = setInterval(checkYoutubeChannelLive, 5 * 60000);
+    checkYoutubeLiveViaProxy();
+    ytLiveProxyTimer = setInterval(checkYoutubeLiveViaProxy, 20000);
     refreshYoutubeChannelHead();
     startYoutubeChannelHeadTimer();
   }
@@ -2531,6 +2569,8 @@
   function stopYoutubeChannelWatcher() {
     clearInterval(ytChannelWatchTimer);
     ytChannelWatchTimer = null;
+    clearInterval(ytLiveProxyTimer);
+    ytLiveProxyTimer = null;
     clearInterval(ytChannelHeadTimer);
     ytChannelHeadTimer = null;
     const head = document.getElementById('youtube-channel-head');
