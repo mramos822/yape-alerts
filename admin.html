@@ -2545,6 +2545,12 @@
   // scraper.js): en ese caso hay que armar un <span> con esos mismos
   // estilos, si no se ve la hoja entera en vez de un icono solo.
   function renderOneYtBadge(b) {
+    if (b.isMask) {
+      // Icono de Polymer (yt-icon): un SVG usado como mascara + color de
+      // fondo para teñirlo, en vez de una imagen a color fija.
+      const style = `width:16px;height:16px;display:inline-block;vertical-align:middle;margin-right:2px;background-color:${escapeHtml(b.color)};-webkit-mask-image:url('${escapeHtml(b.src)}');mask-image:url('${escapeHtml(b.src)}');-webkit-mask-position:${escapeHtml(b.maskPosition)};mask-position:${escapeHtml(b.maskPosition)};-webkit-mask-size:${escapeHtml(b.maskSize)};mask-size:${escapeHtml(b.maskSize)};-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;`;
+      return `<span class="yt-badge-icon" style="${style}" title="${escapeHtml(b.alt || '')}"></span>`;
+    }
     if (b.bgPosition) {
       const style = `width:16px;height:16px;display:inline-block;vertical-align:middle;margin-right:2px;background-image:url('${escapeHtml(b.src)}');background-position:${escapeHtml(b.bgPosition)};background-size:${escapeHtml(b.bgSize)};background-repeat:no-repeat;`;
       return `<span class="yt-badge-icon" style="${style}" title="${escapeHtml(b.alt || '')}"></span>`;
