@@ -1280,14 +1280,14 @@
   }
   .tutorial-hero-icon {
     flex-shrink: 0;
-    width: 46px; height: 46px;
+    width: 52px; height: 52px;
     border-radius: 14px;
-    background: linear-gradient(135deg, var(--yape), var(--yape-bright));
-    box-shadow: 0 6px 16px rgba(110,45,143,.35);
+    background: #fff;
+    box-shadow: 0 6px 16px rgba(110,45,143,.25);
     display: flex; align-items: center; justify-content: center;
-    padding: 7px;
+    padding: 8px;
   }
-  .tutorial-hero-icon img { width: 100%; height: 100%; }
+  .tutorial-hero-icon img { width: 100%; height: 100%; object-fit: contain; }
   .tutorial-hero-title { font-size: 16px; font-weight: 900; letter-spacing: -.01em; color: var(--ink); }
   .tutorial-hero-sub { font-size: 13px; color: var(--ink-soft); margin-top: 2px; line-height: 1.5; }
 
@@ -1533,10 +1533,10 @@
 
       <div class="home-card tutorial-card" id="home-tutorial-card">
         <div class="tutorial-hero">
-          <span class="tutorial-hero-icon"><img src="logo/mark-yape.svg" alt=""></span>
+          <span class="tutorial-hero-icon"><img src="logo/yape-logo.png" alt="Yape"></span>
           <div class="tutorial-hero-text">
-            <div class="tutorial-hero-title">¿Cómo funciona el Yape?</div>
-            <div class="tutorial-hero-sub">Un celular dedicado hace de "espía" de tus pagos y te los manda acá, antes de que salgan en tu overlay.</div>
+            <div class="tutorial-hero-title">¿Cómo funciona Yape Alert?</div>
+            <div class="tutorial-hero-sub">Un celular dedicado hace de "espía" de tus pagos de Yape y te los manda aquí, antes de que salgan en tu overlay.</div>
           </div>
         </div>
 
@@ -1544,7 +1544,7 @@
           <p>
             Truco del oficio: cuando Yape está abierto en la pantalla, <b>no manda notificación</b> con el mensaje del
             pago (solo así se evita el PIN cada vez). Por eso hace falta un celular aparte, con la app
-            <b>Yape Alert</b>, que se queda mirando la pantalla por vos.
+            <b>Yape Alert</b>, que se queda mirando la pantalla por ti.
           </p>
         </div>
 
@@ -1586,7 +1586,7 @@
             </span>
             <div class="tutorial-step-body">
               <div class="tutorial-step-title">Déjalo listo y a mirar</div>
-              <div class="tutorial-step-text">Yape abierto, sesión iniciada, pantalla prendida. Cada pago nuevo va a aparecer acá para que lo apruebes o rechaces.</div>
+              <div class="tutorial-step-text">Yape abierto, sesión iniciada, pantalla prendida. Cada pago nuevo va a aparecer aquí para que lo apruebes o rechaces.</div>
             </div>
           </div>
         </div>
@@ -1631,7 +1631,7 @@
             <input id="youtube-channel-input" type="text" placeholder="tu @handle de YouTube">
             <button id="youtube-channel-save" onclick="saveYoutubeChannel()">Guardar</button>
           </div>
-          <div class="hint" id="youtube-channel-hint">Escribe tu @handle de YouTube (necesitas al menos una API key guardada en la sección YouTube) para que el panel detecte solo cuando arrancás un directo.</div>
+          <div class="hint" id="youtube-channel-hint">Escribe tu @handle de YouTube (necesitas al menos una API key guardada en la sección YouTube) para que el panel detecte solo cuando arrancas un directo.</div>
         </div>
         <div id="youtube-channel-head" class="kick-channel-head" style="display:none">
           <img id="youtube-channel-avatar" class="kick-channel-avatar" alt="">
@@ -2442,7 +2442,7 @@
       if (error) { toast('No se pudo guardar'); console.error(error); return; }
       account.youtube_channel_handle = handle;
       account.youtube_channel_id = channelId;
-      hint.textContent = 'Escribe tu @handle de YouTube (necesitas al menos una API key guardada en la sección YouTube) para que el panel detecte solo cuando arrancás un directo, sin tener que pegar el link cada vez.';
+      hint.textContent = 'Escribe tu @handle de YouTube (necesitas al menos una API key guardada en la sección YouTube) para que el panel detecte solo cuando arrancas un directo, sin tener que pegar el link cada vez.';
       toast('Canal de YouTube conectado');
       startYoutubeChannelWatcher();
       updateHomeDashboard();
