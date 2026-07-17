@@ -687,6 +687,7 @@
   .cards { display: flex; flex-direction: column; gap: 12px; }
 
   .card {
+    position: relative;
     background: var(--card);
     border-radius: 18px;
     padding: 15px 18px;
@@ -702,6 +703,83 @@
     transition: transform .2s cubic-bezier(.34,1.56,.64,1), box-shadow .2s, border-color .3s, opacity .3s;
   }
   .card:hover { transform: translateY(-3px); box-shadow: var(--shadow-hover); }
+  /* Degradado que nace del borde izquierdo (color del yape o del tramo de
+     Super Chat, ver --card-accent-rgb) bien marcado, y se va apagando hacia
+     la derecha hasta un negro tenue -- como si fuera perdiendo potencia. El
+     pseudo va detras de todo (z-index 0) y cada hijo directo pasa a
+     z-index 1 para quedar arriba. Las particulas van aparte, animadas
+     (.card-particles), ver mas abajo. */
+  .card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    left: -5px;
+    border-radius: inherit;
+    overflow: hidden;
+    pointer-events: none;
+    z-index: 0;
+    background:
+      linear-gradient(90deg,
+        rgba(var(--card-accent-rgb, 110,45,143), .55) 0%,
+        rgba(var(--card-accent-rgb, 110,45,143), .22) 32%,
+        transparent 65%),
+      linear-gradient(90deg, transparent 45%, rgba(0,0,0,.4) 100%);
+  }
+  .card > * { position: relative; z-index: 1; }
+  /* Particulas que salen del borde izquierdo y van a la deriva hacia la
+     derecha mientras se desvanecen, en loop -- generadas por tarjeta en
+     renderRow() (6 <span> con posicion/tamaño/retraso fijos por CSS), color
+     tomado del mismo --card-accent-rgb del degradado de arriba. */
+  .card-particles {
+    position: absolute;
+    inset: 0;
+    left: -6px;
+    z-index: 0;
+    overflow: hidden;
+    border-radius: inherit;
+    pointer-events: none;
+  }
+  .card-particles span {
+    position: absolute;
+    border-radius: 50%;
+    background: rgb(var(--card-accent-rgb, 110,45,143));
+    animation: particleDrift ease-in infinite;
+  }
+  .card-particles span:nth-child(1) { width: 7px;   height: 7px;   left: 6%;  top: 24%; opacity: .8; animation-duration: 2.3s; animation-delay: 0s; }
+  .card-particles span:nth-child(2) { width: 6px;   height: 6px;   left: 14%; top: 68%; opacity: .7; animation-duration: 2.8s; animation-delay: .35s; }
+  .card-particles span:nth-child(3) { width: 5px;   height: 5px;   left: 23%; top: 40%; opacity: .62; animation-duration: 2.1s; animation-delay: .7s; }
+  .card-particles span:nth-child(4) { width: 4.5px; height: 4.5px; left: 32%; top: 60%; opacity: .55; animation-duration: 2.6s; animation-delay: 1.05s; }
+  .card-particles span:nth-child(5) { width: 4px;   height: 4px;   left: 41%; top: 30%; opacity: .46; animation-duration: 2.2s; animation-delay: 1.4s; }
+  .card-particles span:nth-child(6) { width: 3.5px; height: 3.5px; left: 50%; top: 52%; opacity: .36; animation-duration: 2.7s; animation-delay: 1.75s; }
+  @keyframes particleDrift {
+    0%   { transform: translateX(0) scale(1); }
+    100% { transform: translateX(30px) scale(.3); opacity: 0; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .card-particles span { animation: none; opacity: 0; }
+  }
+  /* Logo de la plataforma de origen, difuminado y pintado entero del mismo
+     color de la celda (yape o tramo de Super Chat): la imagen real solo se
+     usa como mascara de alfa (mask-image), asi que da igual que el logo de
+     origen sea multicolor -- termina siendo un bloque plano del color de la
+     tarjeta. Vive dentro de .card-particles para heredar su recorte
+     (overflow:hidden + border-radius), asi no se sale de la tarjeta. */
+  .card-brand {
+    position: absolute;
+    top: 50%;
+    right: 4px;
+    width: 84px;
+    height: 84px;
+    transform: translateY(-50%);
+    background: rgb(var(--card-accent-rgb, 110,45,143));
+    -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat;
+    -webkit-mask-position: center; mask-position: center;
+    -webkit-mask-size: contain; mask-size: contain;
+    filter: blur(4px);
+    opacity: .28;
+  }
+  .card-brand[data-brand="yape"] { -webkit-mask-image: url(logo/yape-logo.png); mask-image: url(logo/yape-logo.png); }
+  .card-brand[data-brand="youtube"] { -webkit-mask-image: url(logo/youtubelogo.png); mask-image: url(logo/youtubelogo.png); }
   .card.is-pending { border-left-color: var(--amber); }
   .card.is-live { border-left-color: var(--teal); }
   .card.is-done { border-left-color: var(--accent-200); opacity: .72; }
@@ -2664,6 +2742,10 @@
       ? `<span class="val">${escapeHtml(amountVal(p))}</span>`
       : `<span class="cur">S/</span><span class="val">${amountVal(p)}</span>`;
     const cardHtml = `
+      <div class="card-particles">
+        <span></span><span></span><span></span><span></span><span></span><span></span>
+        <i class="card-brand" data-brand="${isYoutube ? 'youtube' : 'yape'}"></i>
+      </div>
       <div class="card-avatar">${avatarHtml}</div>
       <div class="card-main">
         <span class="card-name">${escapeHtml(p.name || 'Anónimo')}</span>
@@ -2677,6 +2759,14 @@
       <div class="card-actions">${actionsFor(p)}</div>
     `;
     card.innerHTML = cardHtml;
+    // Degradado + particulas que salen del borde izquierdo y se van
+    // desvaneciendo hacia la derecha, coloreados segun el origen: morado fijo
+    // para cualquier yape, o el tramo oficial de Super Chat segun el monto
+    // (ver dashboardCardColor). Solo variables CSS -- el dibujo lo hace
+    // .card::before (ver CSS), asi que tambien tiñe la tarjeta espejo del
+    // Dashboard de una sola vez.
+    const accentRgb = hexToRgb(dashboardCardColor(p));
+    card.style.setProperty('--card-accent-rgb', accentRgb);
     if (window.twemoji) twemoji.parse(card);
 
     // Espejo en el dashboard combinado: Yape + YouTube juntos, con sus
@@ -2695,18 +2785,26 @@
       dcard.className = `card ${newClass} dash-card`;
       if (dcardIsNew && opts.animate) dcard.classList.add(opts.flash ? 'flash' : 'entering');
       dcard.innerHTML = cardHtml;
-      // Aca si se tiñe cada tarjeta segun su origen (a diferencia de las
-      // colas propias de Yape/YouTube, que solo marcan pendiente/aprobado/
-      // rechazado con un borde generico): todo yape es morado, y un
-      // superchat toma el mismo color de tramo oficial que usa YouTube
-      // segun el monto (ver dashboardCardColor) -- fondo oscuro de siempre,
+      // Aca si se tiñe ademas el fondo entero segun su origen (a diferencia
+      // de las colas propias de Yape/YouTube, que solo marcan pendiente/
+      // aprobado/rechazado con un borde generico): fondo oscuro de siempre,
       // solo mezclado un poco con ese color para que no quede plano.
       const accent = dashboardCardColor(p);
       dcard.style.borderLeftColor = accent;
       dcard.style.background = `color-mix(in srgb, ${accent} 14%, var(--card))`;
+      dcard.style.setProperty('--card-accent-rgb', accentRgb);
       if (window.twemoji) twemoji.parse(dcard);
     }
     applyFilter();
+  }
+
+  // Hex ("#RRGGBB") a "r, g, b" para poder usarlo dentro de rgba() en CSS
+  // (variables custom no interpolan color directamente, hace falta el
+  // triplete separado). Con fallback al morado de Yape si algo no calza.
+  function hexToRgb(hex) {
+    const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex || '');
+    if (!m) return '110, 45, 143';
+    return `${parseInt(m[1], 16)}, ${parseInt(m[2], 16)}, ${parseInt(m[3], 16)}`;
   }
 
   // Colores de "tramo" del panelito dorado del overlay (ver ytTierColor/
