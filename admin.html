@@ -315,6 +315,10 @@
   }
   .app-download-banner-text { flex: 1; min-width: 240px; font-size: 13.5px; font-weight: 600; line-height: 1.4; }
   .app-download-banner-text strong { display: block; font-size: 14.5px; font-weight: 900; margin-bottom: 2px; }
+  /* Distinto color que el de "instalar la app" (teal en vez de morado):
+     son dos avisos con intencion distinta, no tienen que confundirse. */
+  .app-update-banner { background: linear-gradient(120deg, var(--teal-dark, #0E9A80), var(--teal)); }
+  .app-update-banner .app-download-banner-btn { color: var(--teal-dark, #0E9A80); }
   .app-download-banner-actions { display: flex; align-items: center; gap: 14px; flex-shrink: 0; }
   .app-download-banner-check {
     display: flex;
@@ -1868,6 +1872,19 @@
       </label>
       <button class="app-download-banner-btn" onclick="downloadPlaychatApp()">Descargar PlayChat</button>
       <button class="app-download-banner-close" onclick="dismissAppDownloadBanner()" title="Cerrar" aria-label="Cerrar">✕</button>
+    </div>
+  </div>
+
+  <!-- Solo la app de escritorio la muestra (ver showAppUpdateBanner):
+       aviso liviano de "hay una version nueva", no se actualiza sola. -->
+  <div class="app-download-banner app-update-banner" id="app-update-banner" style="display:none">
+    <div class="app-download-banner-text">
+      <strong>Hay una versión nueva de PlayChat</strong>
+      <span id="app-update-version"></span> — descargala y reemplazá la carpeta para tener las últimas mejoras.
+    </div>
+    <div class="app-download-banner-actions">
+      <a class="app-download-banner-btn" id="app-update-download-link" href="#" download>Descargar</a>
+      <button class="app-download-banner-close" onclick="document.getElementById('app-update-banner').style.display='none'" title="Cerrar" aria-label="Cerrar">✕</button>
     </div>
   </div>
 
@@ -4730,6 +4747,7 @@
     if (!data || data.source !== 'yape-alert-ext') return;
     if (data.type === 'ext-present') { markExtensionInstalled(); return; }
     if (data.type === 'app-present') { markRunningInApp(); return; }
+    if (data.type === 'app-update-available') { showAppUpdateBanner(data.version, data.url); return; }
     if (data.type === 'yt-popout-status') { updateYtExtStatus(data.open); return; }
     if (!data.name) return;
     ytTierCache.set(data.name, data);
@@ -4848,6 +4866,20 @@
     } catch { /* sin storage, no pasa nada */ }
   }
   window.dismissAppDownloadBanner = dismissAppDownloadBanner;
+
+  // Aviso de "hay una version nueva de la app" -- lo manda preload-panel.js
+  // (electron-app) al comparar su version contra app-version.json. No es
+  // silencioso ni se reemplaza sola (no hay firma de codigo para eso):
+  // solo un aviso con boton para bajar el .zip nuevo a mano.
+  function showAppUpdateBanner(version, url) {
+    const banner = document.getElementById('app-update-banner');
+    if (!banner) return;
+    document.getElementById('app-update-version').textContent = version ? `Versión ${version}` : '';
+    const link = document.getElementById('app-update-download-link');
+    if (link && url) link.href = url;
+    banner.style.display = '';
+  }
+  window.showAppUpdateBanner = showAppUpdateBanner;
 
   // Boton de respaldo por si la apertura automatica de la pestaña fallo
   // (ej. la extension no estaba instalada todavia cuando se conecto el
