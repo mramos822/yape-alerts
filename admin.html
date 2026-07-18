@@ -1586,7 +1586,15 @@
   /* En em (no px fijo) para que escale junto con el font-size del mensaje
      que lo contiene -- asi la lupa +/- del chat del Dashboard tambien
      agranda/achica los emotes y stickers de Kick, no solo el texto. */
-  .kick-emote { height: 1.48em; width: auto; vertical-align: middle; margin: 0 1px; }
+  /* width:auto (no fijo) hacia que el navegador no pudiera reservar el
+     ancho hasta que la imagen del emote realmente terminara de cargar
+     (son lazy-load, ver renderKickContent) -- carga tarde, muchas veces
+     con el mensaje ya arriba de donde estas mirando, y al completarse
+     mueve el texto de ESE mensaje y empuja todo lo de abajo un poquito,
+     sin que la logica de scroll (withStableScroll) se entere porque no
+     es una insercion nueva. Con ancho fijo tambien (cuadrado) el espacio
+     queda reservado desde el vamos, sin importar cuando cargue. */
+  .kick-emote { height: 1.48em; width: 1.48em; object-fit: contain; vertical-align: middle; margin: 0 1px; }
   /* En em (no px fijo) para que tambien escalen con la lupa +/- del chat
      del Dashboard, igual que .kick-emote/.dash-src-icon. */
   .kick-badge-icon {
