@@ -1440,8 +1440,15 @@
   /* Zebra striping: un mensaje de cada dos con un fondo apenas mas claro,
      para que se note de un vistazo donde termina uno y empieza el
      siguiente en un chat que va rapido (antes todos tenian el mismo fondo
-     transparente y se leian pegados unos con otros). */
-  .kick-msg:nth-child(even) { background: rgba(127,127,127,.06); }
+     transparente y se leian pegados unos con otros). Clase fija asignada
+     al insertar (ver markStripe), NO :nth-child(even): esa es una
+     posicion relativa al DOM que se recalcula sola cuando se poda el
+     mensaje mas viejo (pruneLogOldest) -- borrar el primero corre el
+     indice de TODOS los que quedan un lugar, asi que el navegador
+     repintaba el fondo de par/impar de la pantalla ENTERA de una, dando
+     la sensacion de que todo el chat se movia solo aunque el scroll
+     (scrollTop) no se hubiera tocado para nada. */
+  .kick-msg.kick-msg-alt { background: rgba(127,127,127,.06); }
   .kick-msg:hover { background: var(--accent-50); }
   .kick-msg:active { background: var(--accent-100); }
   /* Lineas blancas arriba/abajo ademas del fondo y la franja lateral: el
@@ -4097,6 +4104,19 @@
     if (wasNearBottom) log.scrollTop = log.scrollHeight;
   }
 
+  // Contador propio por log (en vez de nth-child, ver el comentario en
+  // .kick-msg.kick-msg-alt): un mensaje nuevo siempre suma al de ESE log
+  // especifico, asi que el combinado del Dashboard tiene su propia
+  // cuenta, independiente de la de Kick/YouTube por separado (clonar un
+  // mensaje con cloneNode copia tambien su clase kick-msg-alt vieja, por
+  // eso el clon se vuelve a marcar aca con la cuenta del log destino en
+  // vez de heredar la del log de origen).
+  function markStripe(log, el) {
+    const n = parseInt(log.dataset.msgCount || '0', 10) + 1;
+    log.dataset.msgCount = String(n);
+    el.classList.toggle('kick-msg-alt', n % 2 === 0);
+  }
+
   function setKickStatus(text, live) {
     document.getElementById('kick-chat-status').textContent = text;
     document.getElementById('kick-chat-dot').classList.toggle('live', !!live);
@@ -4295,6 +4315,12 @@
     const empty = log.querySelector('.kick-chat-empty');
     if (empty) empty.remove();
     const clone = sourceDiv.cloneNode(true);
+    // cloneNode copia la clase kick-msg-alt que tuviera en su log de
+    // origen (Kick o YouTube por separado) -- se recalcula aca con la
+    // cuenta PROPIA del combinado, que intercala los dos y por lo tanto
+    // tiene su propia paridad, distinta a la de cualquiera de los dos
+    // logs de origen.
+    markStripe(log, clone);
     const icon = document.createElement('img');
     icon.className = 'dash-src-icon';
     icon.alt = platform;
@@ -4380,6 +4406,7 @@
     div.innerHTML = `<span class="kick-who"><span class="kick-msg-time">${escapeHtml(formatKickTime(payload))}</span><span class="kick-user"${color ? ` style="color:${escapeHtml(color)}"` : ''}>${escapeHtml(username)}:</span>${renderKickBadges(payload.sender?.identity?.badges)}</span> ${renderKickContent(payload.content)}`;
     if (window.twemoji) twemoji.parse(div);
     div.addEventListener('click', () => toggleKickHighlight(payload, div));
+    markStripe(log, div);
     // Si el streamer esta leyendo mensajes viejos mas arriba, un mensaje
     // nuevo no debe arrastrarlo de golpe al fondo (ver withStableScroll).
     withStableScroll(log, KICK_LOG_MAX, () => log.appendChild(div));
@@ -5626,6 +5653,7 @@
       // la extension, en vez de quedarse pegado con el chip de texto hasta
       // el proximo mensaje nuevo.
       div.innerHTML = `<span class="kick-who"><span class="kick-msg-time">${escapeHtml(ytMessageTime(item))}</span><span class="kick-user">${escapeHtml(author.displayName || '?')}:</span><span class="yt-badges-slot" data-yt-author="${escapeHtml(author.displayName || '')}">${badgesHtml}</span>${milestoneTag}</span> ${renderYoutubeContent(contentText)}`;
+      markStripe(log, div);
     }
     if (window.twemoji) twemoji.parse(div);
     // Un superchat ya entro solo a la cola de payments (insertYoutubeSuperchat,
