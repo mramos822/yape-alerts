@@ -1608,7 +1608,15 @@
     opacity: 0;
     box-shadow: 0 10px 30px rgba(44,27,54,.35);
     transition: opacity .25s, transform .3s cubic-bezier(.34,1.56,.64,1);
+    /* Nunca debe captar el mouse: ni bloquear un click a algo de atras
+       (por eso pointer-events:none, siempre, no solo mientras esta
+       oculto) ni dejarse seleccionar como texto (arrastrar el mouse
+       encima no debe pintarlo de azul). Como no recibe eventos de mouse,
+       :hover nunca le dispara -- el atenuado de abajo (.toast.dim) lo
+       prende a mano un mousemove en JS que compara la posicion del
+       cursor contra el rectangulo del toast (ver toast() en el script). */
     pointer-events: none;
+    user-select: none;
     z-index: 50;
     display: flex; align-items: center; gap: 9px;
     /* Sin esto, un mensaje largo (ej. el de descargar la app) se salia del
@@ -1618,15 +1626,12 @@
     box-sizing: border-box;
   }
   .toast::before { content: ''; width: 9px; height: 9px; border-radius: 50%; background: var(--teal-bright); }
-  /* pointer-events solo se prende mientras esta "show": si quedara siempre
-     en auto, el circulo invisible de abajo del todo (opacity:0, pero sigue
-     ahi, fixed) tapa clicks en esa franja aunque no se vea ningun toast. */
-  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); pointer-events: auto; }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
   /* El toast (ej. "Overlay limpiado") tapaba lo que hubiera atras justo
      cuando mas hacia falta mirarlo -- con el cursor encima se hace casi
      transparente en vez de desaparecer del todo, para no perder el mensaje
      de una pero poder ver a traves. */
-  .toast.show:hover { opacity: .1; }
+  .toast.show.dim { opacity: .1; }
 
   /* ---------- Pantalla de cuenta (login / registro) ---------- */
   body.locked .wrap, body.locked #logout-btn { display: none; }
@@ -3335,9 +3340,22 @@
   function toast(msg) {
     toastEl.textContent = msg;
     toastEl.classList.add('show');
+    toastEl.classList.remove('dim');
     clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => toastEl.classList.remove('show'), 2400);
+    toastTimer = setTimeout(() => toastEl.classList.remove('show', 'dim'), 2400);
   }
+
+  // El toast tiene pointer-events:none a proposito (nunca debe tapar un
+  // click ni dejarse seleccionar como texto), asi que no le llega ningun
+  // evento de mouse propio para atenuarse con :hover -- este listener en
+  // document compara la posicion del cursor contra su rectangulo a mano
+  // y prende/apaga la clase "dim" (ver .toast.show.dim en el CSS).
+  document.addEventListener('mousemove', (e) => {
+    if (!toastEl.classList.contains('show')) return;
+    const r = toastEl.getBoundingClientRect();
+    const over = e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom;
+    toastEl.classList.toggle('dim', over);
+  });
 
   function amountVal(p) {
     return `${p.amount || '0.00'}`;
