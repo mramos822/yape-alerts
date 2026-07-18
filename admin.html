@@ -4606,11 +4606,13 @@
     }
     isYoutubeLeader = nowLeader;
     if (isYoutubeLeader) {
+      stopYoutubeDisplayLiveTimer(); // ya no hace falta, ytLiveChatId ya dice la verdad
       if (account && account.youtube_channel_id) startYoutubeChannelWatcher();
       broadcastYoutubeLeaderStatus();
     } else {
       if (ytLiveChatId || ytCurrentVideoId) disconnectYoutubeChat(false);
       stopYoutubeChannelWatcher();
+      startYoutubeDisplayLiveTimer();
     }
     updateYoutubeFollowerUI();
   }
@@ -4893,6 +4895,38 @@
   // (que depende de que YouTube no le cambie el formato a esa pagina)
   // alguna vez deja de funcionar.
   let ytLiveProxyTimer = null;
+
+  // Chequeo liviano SOLO para mostrar el estado en Home (nunca conecta
+  // nada): corre en un dispositivo SEGUIDOR, ademas del broadcast que
+  // manda el lider (ver broadcastYoutubeLeaderStatus/updateYoutubeFollowerStatus)
+  // -- ese aviso puede llegar tarde o perderse un pulso puntual (ej. justo
+  // en el momento en que este dispositivo pierde/gana el liderazgo), asi
+  // que esto es una red de seguridad que se corrige sola cada 20s en vez
+  // de depender 100% del timing de un mensaje.
+  let ytDisplayLiveTimer = null;
+  async function checkYoutubeLiveForDisplay() {
+    if (!account || !account.youtube_channel_id || isYoutubeLeader) return;
+    try {
+      const res = await fetch(
+        `${SUPABASE_URL}/functions/v1/youtube-live-check?channelId=${encodeURIComponent(account.youtube_channel_id)}`,
+        { headers: { apikey: SUPABASE_ANON_KEY } }
+      );
+      const data = await res.json();
+      ytFollowerIsLive = !!(data && data.live);
+      refreshYoutubeChannelHead();
+    } catch (err) {
+      console.error(err);
+    }
+  }
+  function startYoutubeDisplayLiveTimer() {
+    stopYoutubeDisplayLiveTimer();
+    checkYoutubeLiveForDisplay();
+    ytDisplayLiveTimer = setInterval(checkYoutubeLiveForDisplay, 20000);
+  }
+  function stopYoutubeDisplayLiveTimer() {
+    clearInterval(ytDisplayLiveTimer);
+    ytDisplayLiveTimer = null;
+  }
 
   async function checkYoutubeLiveViaProxy() {
     if (!account || !account.youtube_channel_id) return;
