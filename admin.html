@@ -1831,6 +1831,10 @@
   .modal-close:hover { background: var(--accent-50); }
 
   @media (max-width: 680px) {
+    /* Instalar una extension de Chrome en modo desarrollador no es algo
+       que se pueda hacer desde un navegador de celular -- la tarjeta no
+       aporta nada ahi, solo confunde. */
+    #home-ext-card { display: none; }
     .app-shell { flex-direction: column; }
     .sidebar {
       width: 100%;
