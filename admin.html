@@ -4829,16 +4829,14 @@
     if (runningInApp) return;
     const btn = document.getElementById('header-download-btn');
     if (btn) btn.style.display = '';
-    // Un aviso propio (no alert()/confirm() del navegador): por defecto por
-    // sesion (si ya lo cerraste una vez en esta pestaña, no vuelve a
-    // molestar hasta que abras el navegador de nuevo), pero si tildaste
-    // "No volver a mostrar" queda guardado para siempre (localStorage) --
-    // el boton del header nunca se esconde por esto, solo el aviso grande.
+    // Un aviso propio (no alert()/confirm() del navegador): la X de arriba
+    // solo cierra esta vista puntual (recargar la pagina lo vuelve a
+    // mostrar), unicamente "No volver a mostrar" lo apaga de verdad
+    // (localStorage, para siempre) -- el boton del header nunca se esconde
+    // por esto, solo el aviso grande.
     let dismissedForever = false;
-    let dismissedSession = false;
     try { dismissedForever = localStorage.getItem('yape-app-banner-dismissed') === '1'; } catch { /* sin storage, no pasa nada */ }
-    try { dismissedSession = sessionStorage.getItem('yape-app-banner-dismissed') === '1'; } catch { /* sin storage, no pasa nada */ }
-    if (!dismissedForever && !dismissedSession) {
+    if (!dismissedForever) {
       const banner = document.getElementById('app-download-banner');
       if (banner) banner.style.display = '';
     }
@@ -4860,10 +4858,8 @@
     if (banner) banner.style.display = 'none';
     if (!remember) return;
     const dontShowAgain = document.getElementById('app-download-dont-show');
-    try {
-      if (dontShowAgain && dontShowAgain.checked) localStorage.setItem('yape-app-banner-dismissed', '1');
-      else sessionStorage.setItem('yape-app-banner-dismissed', '1');
-    } catch { /* sin storage, no pasa nada */ }
+    if (!dontShowAgain || !dontShowAgain.checked) return; // solo cierra esta vista, nada persistido
+    try { localStorage.setItem('yape-app-banner-dismissed', '1'); } catch { /* sin storage, no pasa nada */ }
   }
   window.dismissAppDownloadBanner = dismissAppDownloadBanner;
 
