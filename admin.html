@@ -1316,8 +1316,14 @@
     margin: 10px 2px 0;
     justify-content: center;
   }
-  .dashboard-chat-actions .kick-pause-btn--lg { margin-left: 0; }
+  /* .kick-pause-btn trae margin-left:auto de base (pensado para pegarse
+     solo el al extremo derecho de una cabecera, junto a un span de
+     estado). Aca CADA boton (Pausar, Limpiar, Borrar) es un .kick-pause-btn
+     por separado, asi que cada margen-auto se comia el espacio libre por
+     su cuenta y terminaban todos amontonados contra el borde derecho con
+     un hueco vacio a la izquierda, en vez de agrupados al centro. */
   .dashboard-chat-actions .kick-pause-btn {
+    margin-left: 0;
     font-size: 14.5px;
     padding: 10px 18px;
   }
