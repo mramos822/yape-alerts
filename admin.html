@@ -3870,6 +3870,15 @@
   async function clearChatHighlights() {
     await clearKickHighlight();
     await clearYtHighlight();
+    // clearKickHighlight/clearYtHighlight solo desmarcan el mensaje
+    // ORIGINAL (en el panel propio de Kick/YouTube) -- el clon que se ve
+    // en el chat combinado del Dashboard (ver mirrorToDashboardChat) es
+    // un nodo aparte con su propia marca 'kick-msg-active', asi que
+    // quedaba resaltado ahi aunque ya se hubiera limpiado en todos lados.
+    if (dashHighlightedClone) {
+      dashHighlightedClone.classList.remove('kick-msg-active');
+      dashHighlightedClone = null;
+    }
   }
 
   // La otra mitad de clearChatHighlights: apaga el pago que estuviera en el
