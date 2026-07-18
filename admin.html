@@ -3131,6 +3131,7 @@
       account.youtube_channel_id = null;
       toast('Detección automática de YouTube desactivada');
       stopYoutubeChannelWatcher();
+      stopYoutubeChannelHeadDisplay();
       updateHomeDashboard();
       return;
     }
@@ -3886,6 +3887,7 @@
         if (isYoutubeLeader) startYoutubeChannelWatcher();
       } else {
         stopYoutubeChannelWatcher();
+        stopYoutubeChannelHeadDisplay();
       }
     }
   }
@@ -4604,6 +4606,11 @@
 
   function initYoutubeLeaderChannel() {
     if (ytLeaderChannel || !account) return;
+    // Informativo, corre en TODOS los dispositivos (lider o no) -- por eso
+    // va aca y no adentro de startYoutubeChannelWatcher, que solo corre el
+    // lider.
+    refreshYoutubeChannelHead();
+    startYoutubeChannelHeadTimer();
     ytLeaderChannel = sb.channel('yt-leader-' + account.overlay_key, {
       config: { presence: { key: ytDeviceId }, private: true },
     });
@@ -4642,15 +4649,21 @@
 
   // Un seguidor no tiene conexion propia (ytLiveChatId siempre null ahi):
   // este es el unico lugar que le actualiza el estado/dot de "en directo"
-  // a partir de lo que el lider avisa.
+  // (y ytFollowerIsLive/ytCurrentVideoTitle, que lee refreshYoutubeChannelHead
+  // para la cabecera de Home) a partir de lo que el lider avisa.
+  let ytFollowerIsLive = false;
   function updateYoutubeFollowerStatus(payload) {
     const section = document.getElementById('youtube-chat-section');
+    ytFollowerIsLive = !!payload.live;
     if (payload.live) {
+      ytCurrentVideoTitle = payload.title || '';
       if (section) section.style.display = '';
       setYoutubeStatus(payload.title ? `En vivo · ${payload.title}` : 'Chat de YouTube en vivo', true);
     } else {
+      ytCurrentVideoTitle = '';
       setYoutubeStatus('Sin directo activo', false);
     }
+    refreshYoutubeChannelHead();
   }
 
   // Los botones de conectar/desconectar a mano no tienen sentido para un
@@ -4893,6 +4906,12 @@
     }
   }
 
+  // Solo arranca la deteccion/conexion real -- lo unico que tiene que
+  // hacer nada mas el dispositivo lider. La cabecera de "Canales
+  // conectados" en Home (avatar/nombre/en vivo) es puramente informativa y
+  // corre por separado en TODOS los dispositivos (ver
+  // initYoutubeLeaderChannel): antes vivia aca adentro, asi que un
+  // seguidor (el celular, casi siempre) nunca llegaba a mostrarla.
   function startYoutubeChannelWatcher() {
     stopYoutubeChannelWatcher();
     checkYoutubeChannelLive();
@@ -4903,8 +4922,6 @@
     ytChannelWatchTimer = setInterval(checkYoutubeChannelLive, 5 * 60000);
     checkYoutubeLiveViaProxy();
     ytLiveProxyTimer = setInterval(checkYoutubeLiveViaProxy, 20000);
-    refreshYoutubeChannelHead();
-    startYoutubeChannelHeadTimer();
   }
 
   function stopYoutubeChannelWatcher() {
@@ -4912,6 +4929,12 @@
     ytChannelWatchTimer = null;
     clearInterval(ytLiveProxyTimer);
     ytLiveProxyTimer = null;
+  }
+
+  // Esconde la cabecera del canal en Home cuando se desconfigura YouTube
+  // del todo (no cuando este dispositivo deja de ser lider -- ahi tiene
+  // que seguir viendose, solo informa).
+  function stopYoutubeChannelHeadDisplay() {
     clearInterval(ytChannelHeadTimer);
     ytChannelHeadTimer = null;
     const head = document.getElementById('youtube-channel-head');
@@ -4962,7 +4985,12 @@
   async function refreshYoutubeChannelHead() {
     const head = document.getElementById('youtube-channel-head');
     const channelId = account && account.youtube_channel_id;
-    const isLive = !!ytLiveChatId;
+    // ytLiveChatId solo lo tiene el dispositivo lider (el que de verdad se
+    // conecta); un seguidor se entera de si esta en vivo por lo que le
+    // avisa el lider (ver updateYoutubeFollowerStatus/ytFollowerIsLive) --
+    // sin este OR, la cabecera de un seguidor siempre decia "Offline"
+    // aunque el directo estuviera activo.
+    const isLive = !!ytLiveChatId || (!isYoutubeLeader && ytFollowerIsLive);
     document.getElementById('dashboard-connected-youtube-live-dot')?.classList.toggle('live', isLive);
     if (!channelId) { head.style.display = 'none'; return; }
     const info = await fetchYoutubeChannelInfo(channelId);
