@@ -2447,6 +2447,10 @@
               <span class="dot"></span> Rechazados <span class="count" id="count-dash-tab-rejected">0</span>
             </button>
             <div class="toolbar">
+              <button class="icon-btn" id="dash-test-btn" onclick="insertTestPayments()" title="Mete un Yape y un superchat de prueba en Pendientes, para probar el flujo completo (aprobar, overlay) sin esperar un pago real">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11.24V7a3 3 0 0 1 6 0v4.24a4 4 0 1 1-6 0Z"/><path d="M12 7v4"/></svg>
+                Prueba
+              </button>
               <button class="icon-btn" id="dash-clear-btn" onclick="clearApprovedRejected('dashboard')">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg>
                 Vaciar historial
@@ -5790,6 +5794,43 @@
     const { error } = await sb.from('payments').upsert(row, { onConflict: 'youtube_message_id', ignoreDuplicates: true });
     if (error) console.error(error);
   }
+
+  // Mete un Yape y un superchat de prueba en Pendientes (mismo camino que
+  // sigue un pago real: aparecen por la suscripcion realtime de payments,
+  // se pueden aprobar/rechazar/mostrar en el overlay como cualquier otro).
+  // Pensado para probar el flujo completo sin esperar a que llegue un
+  // pago de verdad. No se pone "source" en la fila de Yape: los pagos de
+  // Yape de verdad (los inserta la app de Android, no este panel) tampoco
+  // lo mandan, para no arriesgarse a pisar algun default/constraint de la
+  // base que no se ve desde aca.
+  async function insertTestPayments() {
+    const stamp = Date.now();
+    const rand = Math.random().toString(36).slice(2, 7);
+    const yapeRow = {
+      user_id: uid,
+      name: 'Juan Pérez (prueba)',
+      amount: (Math.random() * 46 + 4).toFixed(2),
+      message: '¡Éxito con el directo! 🎉',
+      status: 'pending',
+    };
+    const ytRow = {
+      user_id: uid,
+      name: 'Streamer de prueba',
+      amount: 'PEN 12.00',
+      message: 'Suerte con el stream! 🚀',
+      source: 'youtube',
+      status: 'pending',
+      youtube_message_id: `test-${stamp}-${rand}`,
+      raw: JSON.stringify({ avatar: '' }),
+    };
+    const [yapeRes, ytRes] = await Promise.all([
+      sb.from('payments').insert(yapeRow),
+      sb.from('payments').insert(ytRow),
+    ]);
+    if (yapeRes.error) console.error(yapeRes.error);
+    if (ytRes.error) console.error(ytRes.error);
+  }
+  window.insertTestPayments = insertTestPayments;
 
   function handleYoutubeMessage(item) {
     const type = item.snippet && item.snippet.type;
