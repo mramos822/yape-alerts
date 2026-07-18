@@ -1422,7 +1422,7 @@
     line-height: 1.4;
     cursor: pointer;
     border-radius: 8px;
-    padding: 3px 6px;
+    padding: 7px 6px;
     margin: 0 -6px;
     transition: background .12s;
     /* .kick-chat-log es flex-column con overflow-y:auto: sin esto, los
@@ -1437,9 +1437,35 @@
     overflow-wrap: anywhere;
     word-break: break-word;
   }
+  /* Zebra striping: un mensaje de cada dos con un fondo apenas mas claro,
+     para que se note de un vistazo donde termina uno y empieza el
+     siguiente en un chat que va rapido (antes todos tenian el mismo fondo
+     transparente y se leian pegados unos con otros). */
+  .kick-msg:nth-child(even) { background: rgba(127,127,127,.06); }
   .kick-msg:hover { background: var(--accent-50); }
   .kick-msg:active { background: var(--accent-100); }
-  .kick-msg.kick-msg-active { background: var(--teal-soft); box-shadow: inset 3px 0 0 var(--teal); }
+  /* Lineas blancas arriba/abajo ademas del fondo y la franja lateral: el
+     resaltado activo se perdia entre mensajes parecidos, mas marca de
+     arriba/abajo lo separa mejor del resto del chat. Van como pseudo-
+     elementos rectos de ancho completo (no box-shadow inset) para que
+     tapen TODO el borde de arriba y de abajo de punta a punta, sin
+     curvarse en las esquinas redondeadas de .kick-msg. */
+  .kick-msg.kick-msg-active {
+    position: relative;
+    background: var(--teal-soft);
+    box-shadow: inset 3px 0 0 var(--teal);
+  }
+  .kick-msg.kick-msg-active::before,
+  .kick-msg.kick-msg-active::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: #fff;
+  }
+  .kick-msg.kick-msg-active::before { top: 0; }
+  .kick-msg.kick-msg-active::after { bottom: 0; }
   .kick-msg.kick-msg-active:hover { background: var(--teal-soft); }
   /* Un superchat ya no es una linea de chat resaltada: es un rectangulo
      aparte (parecido al que muestra YouTube en su propio chat en vivo),
@@ -4356,7 +4382,12 @@
     if (window.twemoji) twemoji.parse(div);
     div.addEventListener('click', () => toggleKickHighlight(payload, div));
     log.appendChild(div);
-    while (log.children.length > KICK_LOG_MAX) log.removeChild(log.firstChild);
+    // pruneLogOldest (no un removeChild directo): borrar de arriba sin
+    // corregir scrollTop corria todo el contenido hacia arriba y perdias
+    // el lugar donde estabas leyendo -- el chat "saltaba" solo. Kick era
+    // el unico de los tres logs (Kick/YouTube/Dashboard) que todavia lo
+    // hacia asi.
+    pruneLogOldest(log, KICK_LOG_MAX);
     if (wasNearBottom) log.scrollTop = log.scrollHeight;
     mirrorToDashboardChat(div, 'kick', payload.id || `${payload.sender?.username}-${payload.created_at}`);
     // Precarga la foto de perfil apenas se ve el mensaje, no recien al
