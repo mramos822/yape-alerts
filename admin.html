@@ -1404,6 +1404,15 @@
     display: flex;
     flex-direction: column;
     gap: 7px;
+    /* El navegador tiene su PROPIA correccion automatica de scroll
+       ("scroll anchoring": reacomoda solo el scrollTop cuando algo cambia
+       de tamaño arriba de lo que estas mirando) que compite con la
+       correccion manual de pruneLogOldest/withStableScroll -- las dos
+       ajustando el mismo numero por separado es lo que hacia que el
+       desvio fuera para un lado o el otro segun el caso (a veces "sube",
+       a veces "baja") en vez de quedarse quieto. Se apaga la del
+       navegador para que mande UNA sola logica, la nuestra. */
+    overflow-anchor: none;
   }
   /* En em (no px fijo) para que tambien escale con la lupa +/- del chat
      del Dashboard, igual que .kick-emote. */
