@@ -2067,11 +2067,7 @@
             </div>
           </div>
         </div>
-        <button class="dashboard-switch-btn dashboard-switch-btn--test" id="test-chat-btn" onclick="sendTestChatMessages()" style="margin-left:auto" title="Manda mensajes variados de prueba (Kick y YouTube) para ver como se ve el chat, sin tocar nada real">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6M10 3v5.5L5.5 17a2 2 0 0 0 1.8 3h9.4a2 2 0 0 0 1.8-3L14 8.5V3"/></svg>
-          Probar chat
-        </button>
-        <button class="dashboard-switch-btn dashboard-switch-btn--focus" id="dashboard-focus-btn" onclick="toggleDashboardChatFocus()" title="Mostrar solo el chat, a pantalla completa">
+        <button class="dashboard-switch-btn dashboard-switch-btn--focus" id="dashboard-focus-btn" onclick="toggleDashboardChatFocus()" style="margin-left:auto" title="Mostrar solo el chat, a pantalla completa">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M8 21H5a2 2 0 0 1-2-2v-3M16 21h3a2 2 0 0 0 2-2v-3"/></svg>
           Solo chat
         </button>
@@ -2111,10 +2107,6 @@
               <span class="dot"></span> Rechazados <span class="count" id="count-dash-tab-rejected">0</span>
             </button>
             <div class="toolbar">
-              <button class="icon-btn accent" id="dash-test-btn" onclick="sendTestDashboardPayments()" title="Manda yapes y superchats de prueba a Pendientes, sin tocar nada real">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6M10 3v5.5L5.5 17a2 2 0 0 0 1.8 3h9.4a2 2 0 0 0 1.8-3L14 8.5V3"/></svg>
-                Probar superchats y yapes
-              </button>
               <button class="icon-btn" id="dash-clear-btn" onclick="clearApprovedRejected('dashboard')">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg>
                 Vaciar historial
@@ -2167,10 +2159,6 @@
         <span class="dot"></span> Rechazados <span class="count" id="count-rejected">0</span>
       </button>
       <div class="toolbar">
-        <button class="icon-btn accent" id="test-samples-btn" onclick="sendTestSamples()">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6M10 3v5.5L5.5 17a2 2 0 0 0 1.8 3h9.4a2 2 0 0 0 1.8-3L14 8.5V3"/></svg>
-          Probar overlay
-        </button>
         <button class="icon-btn" id="clear-btn" onclick="clearApprovedRejected()">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg>
           Vaciar historial
@@ -5163,129 +5151,6 @@
     postToYoutubeExtension({ source: 'yape-alert-panel', type: 'yt-chat-disconnected' });
   }
   window.disconnectYoutubeChat = disconnectYoutubeChat;
-
-  const testSamples = [
-    { name: 'Rosa Quispe', amount: '5.00' }, // sin mensaje
-    { name: 'Juan Perez', amount: '10.00', message: 'Vamos!' }, // corto
-    { name: 'Maria Fernanda Torres', amount: '25.50', message: 'Que buen stream, saludos desde Arequipa, sigue asi crack, te ganaste una nueva sub!' }, // largo
-    { name: 'Pepe', amount: '2.00', message: 'Un yapecito nomas' }, // tier celeste
-    { name: 'Carla Mendez', amount: '15.00', message: 'Ahi va algo para el canal' }, // tier amarillo
-    { name: 'Diego Ramirez', amount: '50.00', message: 'Toma esto crack' }, // tier naranja
-    { name: 'Ana Sofia Villanueva Castro', amount: '150.00', message: 'Increible contenido, gracias por todo lo que enseñas dia a dia' }, // tier rojo
-    { name: 'Alejandro Fernandez de la Torre', amount: '8.00' }, // nombre largo, sin mensaje
-  ];
-
-  function sleep(ms) {
-    return new Promise((resolve) => setTimeout(resolve, ms));
-  }
-
-  async function sendTestSamples() {
-    const btn = document.getElementById('test-samples-btn');
-    btn.disabled = true;
-    toast('Enviando pruebas al overlay…');
-    for (const sample of testSamples) {
-      const { data, error } = await sb.from('payments').insert(sample).select().single();
-      if (error) { console.error(error); continue; }
-      await sb.rpc('approve_payment', { target_id: data.id });
-      await sleep(4000);
-    }
-    btn.disabled = false;
-    toast('Listo, pruebas enviadas');
-  }
-
-  // Mensajes de prueba variados (texto corto/largo, insignias, colores,
-  // superchat, supersticker, nuevo miembro) para ver como queda el chat
-  // sin depender de que Kick/YouTube esten conectados de verdad. Van
-  // directo a renderKickMessage/renderYoutubeMessage (solo pintan, no
-  // persisten historial ni tocan la base) -- a diferencia de un superchat
-  // real, este NO crea una fila en payments (el fondo de mostrar/aprobar
-  // ya se prueba aparte con "Probar overlay").
-  async function sendTestChatMessages() {
-    const btn = document.getElementById('test-chat-btn');
-    if (btn) btn.disabled = true;
-    toast('Mandando mensajes de prueba al chat…');
-
-    const now = () => new Date().toISOString();
-    const kickSamples = [
-      { sender: { username: 'ChismosaPeru', identity: { color: '#8B5CF6', badges: [] } }, content: 'holaaa como andan todos por aca', created_at: now() },
-      { sender: { username: 'ElStreamerOG', identity: { color: '#F59E0B', badges: [{ type: 'og' }, { type: 'subscriber' }] } }, content: 'GG ese ultimo round estuvo brutal 🔥🔥', created_at: now() },
-      { sender: { username: 'ModeradorKick', identity: { color: '#22C55E', badges: [{ type: 'moderator' }] } }, content: 'recuerden ser respetuosos con los demas en el chat, gracias a todos por venir hoy', created_at: now() },
-      { sender: { username: 'VIPFan99', identity: { color: '#EC4899', badges: [{ type: 'vip' }] } }, content: 'jajajajaja no lo puedo creer 😂😂😂', created_at: now() },
-      { sender: { username: 'NuevoEnElChat', identity: { color: '', badges: [] } }, content: 'hola', created_at: now() },
-    ];
-    const ytSamples = [
-      {
-        id: 'test-yt-1', authorDetails: { displayName: 'LimeñoFan', profileImageUrl: '', isChatOwner: false, isChatModerator: false, isChatSponsor: false, isVerified: false },
-        snippet: { type: 'textMessageEvent', displayMessage: 'primera vez en el directo, saludos desde Lima!', publishedAt: now() },
-      },
-      {
-        id: 'test-yt-2', authorDetails: { displayName: 'MiembroFiel', profileImageUrl: '', isChatOwner: false, isChatModerator: false, isChatSponsor: true, isVerified: false },
-        snippet: { type: 'textMessageEvent', displayMessage: 'buen contenido como siempre 👏', publishedAt: now() },
-      },
-      {
-        // id con timestamp: asi cada tanda de prueba entra como pago NUEVO
-        // (insertYoutubeSuperchat hace upsert con ignoreDuplicates por
-        // youtube_message_id, un id fijo repetido no crearia fila de nuevo).
-        id: 'test-yt-superchat-' + Date.now(), authorDetails: { displayName: 'SuperFan21', profileImageUrl: '', isChatOwner: false, isChatModerator: false, isChatSponsor: false, isVerified: false },
-        snippet: { type: 'superChatEvent', displayMessage: '', publishedAt: now(), superChatDetails: { amountDisplayString: 'S/ 15.00', userComment: 'sigue asi crack, saludos desde Trujillo!' } },
-      },
-      {
-        id: 'test-yt-sticker-' + Date.now(), authorDetails: { displayName: 'StickerLover', profileImageUrl: '', isChatOwner: false, isChatModerator: false, isChatSponsor: false, isVerified: false },
-        snippet: { type: 'superStickerEvent', displayMessage: '', publishedAt: now(), superStickerDetails: { amountDisplayString: 'S/ 5.00' } },
-      },
-      {
-        id: 'test-yt-5', authorDetails: { displayName: 'NuevoMiembro', profileImageUrl: '', isChatOwner: false, isChatModerator: false, isChatSponsor: true, isVerified: false },
-        snippet: { type: 'newSponsorEvent', displayMessage: '', publishedAt: now(), newSponsorDetails: { memberLevelName: 'Fanodric Army 🔥⚡' } },
-      },
-      {
-        id: 'test-yt-6', authorDetails: { displayName: 'ElDueñoDelCanal', profileImageUrl: '', isChatOwner: true, isChatModerator: false, isChatSponsor: false, isVerified: false },
-        snippet: { type: 'textMessageEvent', displayMessage: 'gracias a todos por venir hoy!! 💜', publishedAt: now() },
-      },
-    ];
-
-    // Intercalados (uno de Kick, uno de YouTube...) para que el chat
-    // combinado del Dashboard se vea mezclado de verdad, no en dos bloques.
-    // Los de YouTube van por handleYoutubeMessage (no renderYoutubeMessage
-    // suelto): asi un superchat/supersticker de prueba tambien inserta su
-    // fila real en payments (igual que "Probar overlay" con los yapes) y
-    // aparece de verdad en Pendientes, no solo en el chat.
-    const max = Math.max(kickSamples.length, ytSamples.length);
-    for (let i = 0; i < max; i++) {
-      if (kickSamples[i]) { renderKickMessage(kickSamples[i]); await sleep(700); }
-      if (ytSamples[i]) { handleYoutubeMessage(ytSamples[i]); await sleep(700); }
-    }
-
-    if (btn) btn.disabled = false;
-    toast('Listo, mensajes de prueba enviados al chat');
-  }
-  window.sendTestChatMessages = sendTestChatMessages;
-  window.sendTestSamples = sendTestSamples;
-
-  // A diferencia de "Probar overlay" (que aprueba de una), esto deja las
-  // filas en Pendientes -- sirve para probar el flujo de Aprobar/Rechazar
-  // del Dashboard con yapes y superchats mezclados, sin depender de que
-  // Kick/YouTube esten conectados de verdad.
-  async function sendTestDashboardPayments() {
-    const btn = document.getElementById('dash-test-btn');
-    if (btn) btn.disabled = true;
-    toast('Mandando yapes y superchats de prueba a Pendientes…');
-
-    const rows = [
-      { user_id: uid, name: 'Rosa Quispe', amount: '5.00', source: 'yape' },
-      { user_id: uid, name: 'Juan Perez', amount: '10.00', message: 'Vamos, un yapecito nomas!', source: 'yape' },
-      { user_id: uid, name: 'SuperFan21', amount: 'S/ 15.00', message: 'sigue asi crack, saludos desde Trujillo!', source: 'youtube', youtube_message_id: 'test-dash-yt-' + Date.now() },
-      { user_id: uid, name: 'StickerLover', amount: 'S/ 5.00', message: '', source: 'youtube', youtube_message_id: 'test-dash-yt-sticker-' + Date.now() },
-    ];
-    for (const row of rows) {
-      const { error } = await sb.from('payments').insert(row);
-      if (error) console.error(error);
-      await sleep(400);
-    }
-
-    if (btn) btn.disabled = false;
-    toast('Listo, quedaron pendientes en el Dashboard');
-  }
-  window.sendTestDashboardPayments = sendTestDashboardPayments;
 
   const initialTab = ['pending', 'approved', 'rejected'].includes(location.hash.slice(1))
     ? location.hash.slice(1) : 'pending';
