@@ -2222,10 +2222,6 @@
               <span class="dot"></span> Rechazados <span class="count" id="count-dash-tab-rejected">0</span>
             </button>
             <div class="toolbar">
-              <button class="icon-btn accent" id="dash-stress-test-btn" onclick="sendStressTestPayments()" title="Manda muchos superchats y yapes seguidos, de varias monedas y montos distintos, para probar como aguanta el panel con todo llegando rapido">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h7l-1 8 11-14h-7l1-6z"/></svg>
-                Probar superchats y yapes
-              </button>
               <button class="icon-btn" id="dash-clear-btn" onclick="clearApprovedRejected('dashboard')">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg>
                 Vaciar historial
@@ -5345,77 +5341,6 @@
     postToYoutubeExtension({ source: 'yape-alert-panel', type: 'yt-chat-disconnected' });
   }
   window.disconnectYoutubeChat = disconnectYoutubeChat;
-
-  // Manda una tanda grande de superchats de muchas monedas/montos distintos
-  // (para ver ytTierColor cubriendo varios tramos y monedas de una) mas
-  // unos yapes en soles, todo llegando rapido seguido (no de una sola vez):
-  // sirve para ver como aguanta el chat/las tarjetas del Dashboard bajo
-  // carga real, no solo con un mensaje suelto de tanto en tanto. Los
-  // superchats van por handleYoutubeMessage (igual que uno real): entran a
-  // payments Y se pintan en el chat de YouTube/Dashboard a la vez.
-  async function sendStressTestPayments() {
-    const btn = document.getElementById('dash-stress-test-btn');
-    if (btn) btn.disabled = true;
-    toast('Mandando una tanda grande de superchats y yapes de varias monedas…');
-
-    const names = ['LimeñoFan', 'MiembroFiel', 'SuperFan21', 'StickerLover', 'ChismosaPeru', 'ElStreamerOG', 'ModeradorKick', 'VIPFan99', 'Ana Sofia Villanueva', 'Diego Ramirez', 'Carla Mendez', 'Pepe', 'Alejandro Fernandez', 'Maria Torres'];
-    const messages = ['sigue asi crack!', 'saludos desde el chat', 'que buen directo', 'vamos con todo', 'un aporte para el canal', '', ''];
-    // Un puñado de tramo bajo/medio/alto por moneda (mismos prefijos que
-    // reconoce matchYoutubeCurrency/YT_CURRENCIES), para que ytTierColor
-    // pase por varias monedas Y varios colores de tramo, no solo dolares.
-    const currencySamples = [
-      { prefix: 'US$', amount: '1.00' }, { prefix: 'US$', amount: '5.00' }, { prefix: 'US$', amount: '25.00' }, { prefix: 'US$', amount: '150.00' },
-      { prefix: '€', amount: '2.00' }, { prefix: '€', amount: '50.00' },
-      { prefix: '£', amount: '10.00' },
-      { prefix: '¥', amount: '500' }, { prefix: '¥', amount: '5000' },
-      { prefix: '₩', amount: '3000' },
-      { prefix: 'MX$', amount: '80.00' },
-      { prefix: 'R$', amount: '30.00' },
-      { prefix: 'ARS$', amount: '1000' }, { prefix: 'ARS$', amount: '15000' },
-      { prefix: 'COP$', amount: '20000' },
-      { prefix: 'CLP$', amount: '5000' },
-      { prefix: '₹', amount: '400' },
-      { prefix: 'Rp', amount: '80000' },
-      { prefix: '₱', amount: '300' },
-      { prefix: '₺', amount: '150' },
-      { prefix: '₦', amount: '5000' },
-      { prefix: 'S/', amount: '15.00' }, { prefix: 'S/', amount: '80.00' },
-    ];
-
-    for (let i = 0; i < currencySamples.length; i++) {
-      const c = currencySamples[i];
-      const isSticker = i % 5 === 4;
-      const name = names[i % names.length];
-      const message = messages[i % messages.length];
-      const item = {
-        id: `test-stress-${Date.now()}-${i}`,
-        authorDetails: { displayName: name, profileImageUrl: '', isChatOwner: false, isChatModerator: false, isChatSponsor: i % 3 === 0, isVerified: false },
-        snippet: { type: isSticker ? 'superStickerEvent' : 'superChatEvent', displayMessage: '', publishedAt: new Date().toISOString() },
-      };
-      const details = { amountDisplayString: `${c.prefix}${c.amount}`, userComment: isSticker ? '' : message };
-      if (isSticker) item.snippet.superStickerDetails = details; else item.snippet.superChatDetails = details;
-      handleYoutubeMessage(item);
-      await sleepMs(90);
-    }
-
-    // Yapes en soles, misma cadencia rapida, mezclados al final.
-    const yapeRows = [
-      { name: 'Rosa Quispe', amount: '5.00' },
-      { name: 'Juan Perez', amount: '10.00', message: 'Vamos, un yapecito nomas!' },
-      { name: 'Maria Fernanda Torres', amount: '25.50', message: 'Sigue asi, saludos desde Arequipa!' },
-      { name: 'Diego Ramirez', amount: '150.00', message: 'Toma esto crack' },
-    ];
-    for (const row of yapeRows) {
-      const { error } = await sb.from('payments').insert({ user_id: uid, source: 'yape', status: 'pending', ...row });
-      if (error) console.error(error);
-      await sleepMs(90);
-    }
-
-    if (btn) btn.disabled = false;
-    toast('Listo, tanda de prueba enviada');
-  }
-  window.sendStressTestPayments = sendStressTestPayments;
-  function sleepMs(ms) { return new Promise((resolve) => setTimeout(resolve, ms)); }
 
   const initialTab = ['pending', 'approved', 'rejected'].includes(location.hash.slice(1))
     ? location.hash.slice(1) : 'pending';
