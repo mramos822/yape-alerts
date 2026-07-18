@@ -3857,6 +3857,39 @@
     applyFilter();
   }
 
+  // Se dispara con cualquier UPDATE de la fila de accounts (propia, ya
+  // filtrado por user_id): solo actua si Kick o YouTube cambiaron de
+  // verdad, para no reconectar de la nada con cada guardado que no toca
+  // esos campos (ej. cambiar el nombre del canal).
+  function applyAccountRealtimeChange(newAccount) {
+    if (!account) { account = newAccount; return; }
+    const kickChanged = newAccount.kick_username !== account.kick_username
+      || newAccount.kick_chatroom_id !== account.kick_chatroom_id;
+    const ytChanged = newAccount.youtube_channel_handle !== account.youtube_channel_handle
+      || newAccount.youtube_channel_id !== account.youtube_channel_id;
+    account = newAccount;
+    populateAccountFields();
+    updateDashboardConnectedInfo();
+    updateHomeDashboard();
+
+    if (kickChanged) {
+      if (account.kick_chatroom_id) connectKickChat(account.kick_chatroom_id);
+      else disconnectKickChat(true);
+    }
+    if (ytChanged) {
+      // Mismo motivo que en saveYoutubeChannel: si YA habia un chat
+      // conectado del canal anterior (y este dispositivo es el lider), hay
+      // que soltarlo antes de que el watcher chequee el canal nuevo.
+      if (isYoutubeLeader && (ytLiveChatId || ytCurrentVideoId)) disconnectYoutubeChat(false);
+      if (account.youtube_channel_id) {
+        initYoutubeLeaderChannel();
+        if (isYoutubeLeader) startYoutubeChannelWatcher();
+      } else {
+        stopYoutubeChannelWatcher();
+      }
+    }
+  }
+
   function handleRealtimeChange(payload) {
     if (payload.eventType === 'INSERT') {
       const who = payload.new.name || 'alguien';
@@ -3884,6 +3917,11 @@
       })
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'devices', filter: `user_id=eq.${uid}` }, (payload) => upsertDevice(payload.new))
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'devices', filter: `user_id=eq.${uid}` }, (payload) => upsertDevice(payload.new))
+      // Si cambias el canal de Kick/YouTube desde OTRO dispositivo, este se
+      // enteraba recien al recargar la pagina (el "account" en memoria
+      // quedaba viejo). Con esto se aplica al instante en todos los
+      // dispositivos abiertos, no solo en el que hizo el cambio.
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'accounts', filter: `user_id=eq.${uid}` }, (payload) => applyAccountRealtimeChange(payload.new))
       .subscribe((status) => {
         if (status === 'SUBSCRIBED') {
           setConn(true);
