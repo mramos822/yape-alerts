@@ -1894,6 +1894,10 @@
        propio renglon aparte). */
     .dashboard-switch-btn { font-size: 12.5px; padding: 8px 12px; }
     .dashboard-switch-btn--focus { margin-left: 0; }
+    /* "Chat combinado" -> "Chat" a secas: mas corto, asi "Solo chat" (que
+       es un boton distinto, prende pantalla completa) entra en el mismo
+       renglon en vez de irse solo a uno nuevo. */
+    .dashboard-switch-btn-sub { display: none; }
     .toolbar { margin-left: 0; }
     .tab-btn { padding: 8px 14px; font-size: 13px; }
 
@@ -2234,7 +2238,7 @@
       <div class="dashboard-switch">
         <button class="dashboard-switch-btn active" data-view="chat" onclick="setDashboardView('chat')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-          Chat combinado
+          Chat<span class="dashboard-switch-btn-sub"> combinado</span>
         </button>
         <button class="dashboard-switch-btn" data-view="payments" onclick="setDashboardView('payments')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
