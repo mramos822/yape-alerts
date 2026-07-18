@@ -4921,6 +4921,16 @@
   // que esto es una red de seguridad que se corrige sola cada 20s en vez
   // de depender 100% del timing de un mensaje.
   let ytDisplayLiveTimer = null;
+  // El scraping de youtube.com/<canal>/live (ver supabase/functions/
+  // youtube-live-check) a veces da un falso negativo puntual -- YouTube
+  // reparte 2 plantillas de pagina distintas y de vez en cuando ninguna de
+  // las dos formas de deteccion matchea en un pedido dado, aunque el canal
+  // siga en vivo. Un solo negativo asi, justo despues de un "en directo"
+  // correcto (llegado por el aviso del lider), hacia que la cabecera
+  // parpadeara a Offline por un rato de forma aleatoria. Por eso un
+  // negativo aislado no se toma en serio: hacen falta 2 seguidos (con 20s
+  // entre uno y otro) para recien ahi marcar offline de verdad.
+  let ytDisplayLiveMisses = 0;
   async function checkYoutubeLiveForDisplay() {
     if (!account || !account.youtube_channel_id || isYoutubeLeader) return;
     try {
@@ -4929,14 +4939,24 @@
         { headers: { apikey: SUPABASE_ANON_KEY } }
       );
       const data = await res.json();
-      ytFollowerIsLive = !!(data && data.live);
-      refreshYoutubeChannelHead();
+      if (data && data.live) {
+        ytDisplayLiveMisses = 0;
+        ytFollowerIsLive = true;
+        refreshYoutubeChannelHead();
+      } else {
+        ytDisplayLiveMisses++;
+        if (ytDisplayLiveMisses >= 2) {
+          ytFollowerIsLive = false;
+          refreshYoutubeChannelHead();
+        }
+      }
     } catch (err) {
       console.error(err);
     }
   }
   function startYoutubeDisplayLiveTimer() {
     stopYoutubeDisplayLiveTimer();
+    ytDisplayLiveMisses = 0;
     checkYoutubeLiveForDisplay();
     ytDisplayLiveTimer = setInterval(checkYoutubeLiveForDisplay, 20000);
   }
