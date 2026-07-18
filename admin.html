@@ -4567,6 +4567,11 @@
     // que ya existe (por eso no hay insert duplicado nunca mas).
     ytLeaderChannel.on('broadcast', { event: 'yt-mirror' }, ({ payload }) => {
       if (isYoutubeLeader || !payload) return;
+      // Mismo chequeo de pausa que handleYoutubeMessage (que ES el que usa
+      // el lider): sin esto, "Pausar chat" no hacia nada en un seguidor
+      // (mobile, la mayoria de las veces) porque el mensaje le llegaba por
+      // este camino aparte, salteandose el chequeo de ytPaused.
+      if (ytPaused) { ytPausedQueue.push(payload); updateYoutubePauseBtn(); return; }
       renderYoutubeMessage(payload);
     });
     ytLeaderChannel.on('broadcast', { event: 'yt-leader-status' }, ({ payload }) => {
