@@ -4593,10 +4593,21 @@
     if (!ytLeaderChannel) return;
     const leaderKey = computeYoutubeLeaderKey(ytLeaderChannel.presenceState());
     const nowLeader = leaderKey === ytDeviceId;
-    if (nowLeader === isYoutubeLeader) return;
+    if (nowLeader === isYoutubeLeader) {
+      // El liderazgo no cambio, pero el "sync" tambien se dispara cuando
+      // se UNE alguien nuevo (ej. el celular recien abrio el panel con el
+      // .exe ya conectado de antes): el broadcast de estado es un aviso al
+      // toque, no algo que un dispositivo nuevo pueda "leer" retroactivo,
+      // asi que si sigo siendo el lider lo repito aca para que quien
+      // recien se unio se entere de que ya esta en vivo, en vez de
+      // quedarse en "Offline" hasta el proximo cambio de verdad.
+      if (isYoutubeLeader) broadcastYoutubeLeaderStatus();
+      return;
+    }
     isYoutubeLeader = nowLeader;
     if (isYoutubeLeader) {
       if (account && account.youtube_channel_id) startYoutubeChannelWatcher();
+      broadcastYoutubeLeaderStatus();
     } else {
       if (ytLiveChatId || ytCurrentVideoId) disconnectYoutubeChat(false);
       stopYoutubeChannelWatcher();
