@@ -116,6 +116,15 @@
     -webkit-font-smoothing: antialiased;
     transition: background-color .6s ease;
   }
+  /* Red de seguridad contra scroll horizontal: con tantos componentes
+     (toolbars, chips, tarjetas) es facil que UNO se pase del ancho en un
+     telefono angosto y arrastre a toda la pagina de costado. Todo lo que
+     necesita su propio scroll horizontal (ej. .link-row code) ya lo pide
+     explicito con overflow-x:auto, asi que cortarlo aca no rompe nada. Va
+     en <html>, no en <body>: ahi no interfiere con los sticky de adentro
+     (.app-header, .sidebar), que dependen de que el scroll real siga
+     siendo el del viewport/documento. */
+  html { overflow-x: hidden; }
   /* Cada seccion tiñe el fondo de la app con su propio color de marca --
      lavado suave en claro, casi negro en oscuro (ver --wash-* arriba) --
      asi se siente "cada canal tiene su ambiente" al cambiar de pestaña
@@ -1540,6 +1549,11 @@
     pointer-events: none;
     z-index: 50;
     display: flex; align-items: center; gap: 9px;
+    /* Sin esto, un mensaje largo (ej. el de descargar la app) se salia del
+       telefono de los dos lados a la vez, centrado pero mas ancho que la
+       pantalla. */
+    max-width: calc(100vw - 32px);
+    box-sizing: border-box;
   }
   .toast::before { content: ''; width: 9px; height: 9px; border-radius: 50%; background: var(--teal-bright); }
   .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
@@ -1814,6 +1828,7 @@
     .sidebar {
       width: 100%;
       flex-direction: row;
+      flex-wrap: wrap;
       justify-content: center;
       border-right: none;
       border-bottom: 1px solid var(--line);
@@ -1841,6 +1856,29 @@
     .card-message { max-width: none; }
     .card-actions { justify-content: flex-end; flex-wrap: wrap; margin-top: 8px; }
     .live-badge span:not(.live-dot) { display: none; }
+
+    /* ---------- Chat: cabecera y logs (Kick/YouTube/Dashboard) ---------- */
+    /* Sin flex-wrap esto desbordaba de costado en un telefono: el estado +
+       "Pausar chat" + "Borrar chat" + las lupas nunca entraban en un solo
+       renglon angosto. */
+    .kick-chat-head { flex-wrap: wrap; row-gap: 8px; }
+    .kick-pause-btn { padding: 7px 11px; font-size: 12px; }
+    .kick-pause-btn--lg { padding: 8px 13px; font-size: 12.5px; }
+    .dash-font-ctrl { margin-left: 0; }
+    /* El sidebar pasa a ocupar su propia fila arriba del todo (ver
+       .sidebar mas arriba) en vez de ir al costado, asi que queda MENOS
+       alto libre para el chat, no mas -- achicar el "menos" fijo de mas
+       arriba (pensado para desktop) evita que el chat quede recortado o
+       con casi nada de alto en un telefono. */
+    #dashboard-chat-log, #kick-chat-log, #youtube-chat-log {
+      height: calc(100vh - 430px);
+      min-height: 260px;
+    }
+    #dashboard-cards { max-height: calc(100vh - 460px); min-height: 260px; }
+    /* ---------- Viñeta del Dashboard y tabs/toolbar ---------- */
+    .dashboard-switch-btn { font-size: 12.5px; padding: 8px 12px; }
+    .toolbar { margin-left: 0; }
+    .tab-btn { padding: 8px 14px; font-size: 13px; }
   }
 </style>
 </head>
