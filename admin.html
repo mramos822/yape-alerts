@@ -702,15 +702,49 @@
   body.chat-focus-mode #section-dashboard .section-banner {
     display: none;
   }
+  /* Antes el alto del chat en foco era un numero fijo (100vh - 140px)
+     calculado a ojo asumiendo solo la cabecera de arriba -- al mover los
+     botones (Pausar/Escoba/Borrar/lupas) abajo del chat, esa cuenta ya no
+     alcanzaba y esa barra quedaba tapada, obligando a scrollear la pagina
+     entera. Con flex de arriba a abajo (wrap -> seccion -> vista ->
+     columna) el chat-log se estira solo con flex:1 hasta ocupar lo que
+     sobre, sin importar cuanto midan la cabecera o la barra de botones, y
+     el scroll queda SOLO adentro del chat (que ya tenia overflow-y:auto).*/
   body.chat-focus-mode .wrap {
     max-width: none;
     padding: 14px 16px 16px;
+    height: 100vh;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
   }
   body.chat-focus-mode #section-dashboard {
     margin-top: 0;
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+  }
+  body.chat-focus-mode .dashboard-view {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  body.chat-focus-mode .dashboard-col[data-view="chat"] {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
   }
   body.chat-focus-mode #dashboard-chat-log {
-    height: calc(100vh - 140px);
+    flex: 1;
+    min-height: 0;
+    height: auto;
+  }
+  body.chat-focus-mode .kick-chat-head,
+  body.chat-focus-mode .dashboard-chat-actions {
+    flex-shrink: 0;
   }
   .dashboard-switch-btn--focus { margin-left: auto; }
   .dashboard-switch-btn--focus.is-on { background: var(--accent-50); color: var(--accent); }
@@ -1268,6 +1302,27 @@
     color: var(--ink);
     margin: 0 2px 10px;
   }
+  /* Version de .kick-chat-head usada como barra de acciones DEBAJO del
+     chat (Pausar/Escoba/Borrar/lupas) en vez de como encabezado arriba:
+     .kick-chat-head trae margin-top:0 (pensado para ir pegado arriba del
+     todo, con aire solo debajo), lo que la dejaba pegada al borde inferior
+     del chat sin separacion -- se veia "montada encima" del cuadro de
+     chat. Ademas el primer boton (Pausar) trae margin-left:auto para
+     empujarse al extremo derecho junto al span de estado que antes lo
+     acompañaba arriba; sin ese span aca abajo, ese margen dejaba todo el
+     grupo pegado a la derecha y un hueco vacio a la izquierda en vez de
+     centrado. */
+  .dashboard-chat-actions {
+    margin: 10px 2px 0;
+    justify-content: center;
+  }
+  .dashboard-chat-actions .kick-pause-btn--lg { margin-left: 0; }
+  .dashboard-chat-actions .kick-pause-btn {
+    font-size: 14.5px;
+    padding: 10px 18px;
+  }
+  .dashboard-chat-actions .kick-pause-btn svg { width: 16px; height: 16px; }
+  .dashboard-chat-actions .dash-font-btn { padding: 10px 14px; }
   .kick-dot {
     width: 8px; height: 8px;
     border-radius: 50%;
@@ -1563,7 +1618,15 @@
     box-sizing: border-box;
   }
   .toast::before { content: ''; width: 9px; height: 9px; border-radius: 50%; background: var(--teal-bright); }
-  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  /* pointer-events solo se prende mientras esta "show": si quedara siempre
+     en auto, el circulo invisible de abajo del todo (opacity:0, pero sigue
+     ahi, fixed) tapa clicks en esa franja aunque no se vea ningun toast. */
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); pointer-events: auto; }
+  /* El toast (ej. "Overlay limpiado") tapaba lo que hubiera atras justo
+     cuando mas hacia falta mirarlo -- con el cursor encima se hace casi
+     transparente en vez de desaparecer del todo, para no perder el mensaje
+     de una pero poder ver a traves. */
+  .toast.show:hover { opacity: .1; }
 
   /* ---------- Pantalla de cuenta (login / registro) ---------- */
   body.locked .wrap, body.locked #logout-btn { display: none; }
@@ -1906,14 +1969,13 @@
     .tab-btn { padding: 8px 14px; font-size: 13px; }
 
     /* ---------- "Solo chat": que entre todo en la pantalla del celular ---------- */
-    /* Sin header/sidebar/banner (ver body.chat-focus-mode mas arriba) queda
-       bastante menos que descontar que en desktop, pero la viñeta y la
-       cabecera del chat ahora pueden ocupar 2-3 renglones en mobile (ver
-       arriba), asi que hay que descontar mas que los 140px pensados para
-       una sola fila de controles en desktop. */
+    /* El alto ya lo resuelve el flex:1 de body.chat-focus-mode #dashboard-chat-log
+       (mas arriba): se estira solo hasta lo que sobre despues de la viñeta,
+       la cabecera y la barra de botones, sin importar cuantos renglones
+       ocupe cada una en mobile. Solo hace falta un piso minimo para que no
+       quede aplastado si el resto crece mucho. */
     body.chat-focus-mode #dashboard-chat-log {
-      height: calc(100vh - 230px);
-      min-height: 200px;
+      min-height: 160px;
     }
   }
 </style>
@@ -2282,9 +2344,16 @@
         <div class="dashboard-col" data-view="chat">
           <div class="kick-chat-head">
             <span id="dashboard-chat-status">Chat combinado<span class="dashboard-chat-status-sub"> (Kick + YouTube)</span></span>
+          </div>
+          <div id="dashboard-chat-log" class="kick-chat-log"><div class="kick-chat-empty">Esperando mensajes de Kick o YouTube…</div></div>
+          <div class="kick-chat-head dashboard-chat-actions">
             <button id="dashboard-pause-btn" class="kick-pause-btn kick-pause-btn--lg" onclick="toggleDashboardPause()" title="Pausar los dos chats (Kick y YouTube)">
               <svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>
               Pausar chat
+            </button>
+            <button id="dashboard-clear-overlay-btn" class="kick-pause-btn" onclick="clearOverlayAll()" title="Limpiar overlay: quita del overlay lo que este mostrando ahora (pago aprobado o mensaje resaltado)">
+              <span style="font-size:1.3em; line-height:1;">🧹</span>
+              Limpiar chat
             </button>
             <button id="dashboard-clear-btn" class="kick-pause-btn" onclick="clearDashboardChat()" title="Borrar solo esta vista combinada (no toca el historial de Kick ni YouTube)">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg>
@@ -2299,7 +2368,6 @@
               </button>
             </div>
           </div>
-          <div id="dashboard-chat-log" class="kick-chat-log"><div class="kick-chat-empty">Esperando mensajes de Kick o YouTube…</div></div>
         </div>
         <div class="dashboard-col" data-view="payments" style="display:none">
           <div class="tabs">
@@ -3754,6 +3822,19 @@
     const { error } = await sb.from('payments').update(patch).eq('id', live.id);
     if (error) console.error(error);
   }
+
+  // Limpia lo que sea que este al aire en el overlay ahora mismo, sin
+  // importar si es un pago aprobado o un highlight de chat (son los dos
+  // sistemas separados de mas arriba). Mismo orden que act('approve'): el
+  // pago se apaga primero en la base y el highlight se limpia despues, asi
+  // el overlay no llega a mostrar el pago de rebote entre medio (ver el
+  // comentario largo arriba de clearOverlayPayment).
+  async function clearOverlayAll() {
+    await clearOverlayPayment();
+    await clearChatHighlights();
+    toast('Overlay limpiado');
+  }
+  window.clearOverlayAll = clearOverlayAll;
 
   async function act(id, action) {
     if (action === 'approve') {
