@@ -4063,38 +4063,38 @@
   // mas viejo primero, sea cual sea su tipo (el problema real de que
   // "desaparecian antes de que salga el scroll" era que los flex items no
   // tenian flex-shrink:0, ver .kick-msg/.yt-superchat-card).
-  // No toca scrollTop aca: eso lo maneja quien llama (ver
-  // withStableScroll), midiendo la distancia al fondo UNA sola vez de
-  // punta a punta en vez de ir corrigiendo a los parches por cada nodo
-  // que se borra -- con un chat activo (150 mensajes se llenan rapido en
-  // el combinado del Dashboard, que junta Kick + YouTube) podar de a uno
-  // por mensaje nuevo significaba corregir scrollTop en cada insercion, y
-  // cualquier desvio chico ahi se notaba e iba creciendo con el tiempo.
+  // Un mensaje nuevo se agrega SIEMPRE al final: si el streamer esta
+  // leyendo algo mas arriba, ese contenido no se mueve ni un pixel solo
+  // por agregar algo mas abajo (fuera de la vista), asi que ahi no hace
+  // falta tocar scrollTop para nada. Lo unico que SI mueve lo que estas
+  // mirando es podar de ARRIBA (el mensaje mas viejo se borra para no
+  // pasarse del tope): eso corre todo el resto hacia arriba, y ahi si hay
+  // que descontar exactamente lo que se achico scrollHeight para que la
+  // vista quede pinneada en el mismo lugar (ver el "porque" mas abajo,
+  // en la version anterior se intento arreglar esto recalculando la
+  // distancia al fondo despues de cada insercion, pero eso hacia que la
+  // barra "siguiera" subiendo cada vez que llegaba un mensaje nuevo en
+  // vez de quedarse quieta -- justo lo contrario de lo que se pedia).
   function pruneLogOldest(log, max) {
     while (log.children.length > max) {
       const node = log.firstChild;
       if (node.dataset && node.dataset.dashKey) dashMirroredMsgs.delete(node.dataset.dashKey);
+      const heightBefore = log.scrollHeight;
       node.remove();
+      log.scrollTop -= (heightBefore - log.scrollHeight);
     }
   }
 
-  // Envuelve un append (o varios) al chat preservando exactamente donde
-  // estaba mirando el streamer: si ya estaba pegado al fondo, sigue
-  // pegado al fondo con el mensaje nuevo (comportamiento de siempre); si
-  // habia scrolleado hacia arriba a leer algo, la distancia a la que
-  // estaba del fondo se recalcula DESPUES de insertar y podar -- en vez
-  // de sumar/restar deltas a mano en cada paso (insertar Y podar cambian
-  // el alto por separado), que es donde se colaba el desvio que hacia
-  // "saltar" el chat con la barra scrolleada hacia arriba mientras
-  // seguian llegando mensajes.
+  // Envuelve un append al chat: si ya estaba pegado al fondo, sigue
+  // pegado al fondo con el mensaje nuevo; si no, no se toca el scroll en
+  // absoluto (pruneLogOldest ya corrige por su cuenta si podar de arriba
+  // corre el contenido) -- lo que estes mirando se queda exactamente
+  // donde esta, sin "seguir" nada.
   function withStableScroll(log, max, mutate) {
-    const distanceFromBottom = log.scrollHeight - log.scrollTop - log.clientHeight;
-    const wasNearBottom = distanceFromBottom < 12;
+    const wasNearBottom = log.scrollHeight - log.scrollTop - log.clientHeight < 12;
     mutate();
     pruneLogOldest(log, max);
-    log.scrollTop = wasNearBottom
-      ? log.scrollHeight
-      : Math.max(0, log.scrollHeight - log.clientHeight - distanceFromBottom);
+    if (wasNearBottom) log.scrollTop = log.scrollHeight;
   }
 
   function setKickStatus(text, live) {
