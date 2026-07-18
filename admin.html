@@ -4602,13 +4602,30 @@
       // recien se unio se entere de que ya esta en vivo, en vez de
       // quedarse en "Offline" hasta el proximo cambio de verdad.
       if (isYoutubeLeader) broadcastYoutubeLeaderStatus();
+      // Si sigo siendo seguidor pero el timer de chequeo propio no esta
+      // corriendo (caso: este dispositivo se abrio DIRECTO como seguidor,
+      // con el lider ya conectado de antes -- nunca paso por la rama de
+      // "cambio de liderazgo" de mas abajo, que es la unica que hoy lo
+      // arrancaba), lo arranco aca. startYoutubeDisplayLiveTimer ya es
+      // seguro de llamar de nuevo si por algun motivo ya estaba corriendo.
+      if (!isYoutubeLeader && !ytDisplayLiveTimer) startYoutubeDisplayLiveTimer();
       return;
     }
     isYoutubeLeader = nowLeader;
     if (isYoutubeLeader) {
       stopYoutubeDisplayLiveTimer(); // ya no hace falta, ytLiveChatId ya dice la verdad
       if (account && account.youtube_channel_id) startYoutubeChannelWatcher();
-      broadcastYoutubeLeaderStatus();
+      // OJO: NO se broadcastea el estado aca. En este instante ytLiveChatId
+      // todavia es null (recien se esta por arrancar a detectar/conectar de
+      // verdad, eso es async) -- si se avisara "live:false" ahora mismo, le
+      // pisaria a los seguidores el estado correcto que ya tenian, y se
+      // quedarian en "Offline" hasta que este dispositivo se conecte de
+      // verdad (con canales lentos de detectar, eso tardaba bastante y se
+      // sentia como un bug permanente). connectToYoutubeVideo/
+      // disconnectYoutubeChat ya avisan por su cuenta apenas se sabe el
+      // estado real; mientras tanto, el chequeo propio de cada seguidor
+      // (checkYoutubeLiveForDisplay, cada 20s) mantiene la cabecera de Home
+      // correcta sin depender de este aviso.
     } else {
       if (ytLiveChatId || ytCurrentVideoId) disconnectYoutubeChat(false);
       stopYoutubeChannelWatcher();
