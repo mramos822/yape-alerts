@@ -4296,8 +4296,16 @@
       const body = await res.json().catch(() => null);
       if (res.ok) return body;
       const reason = body?.error?.errors?.[0]?.reason || '';
-      if (res.status === 403 && (reason === 'quotaExceeded' || reason === 'dailyLimitExceeded')) {
-        lastErr = new Error(reason);
+      // La cuota diaria agotada NO siempre vuelve como 403 (el caso "clasico"
+      // de Google) -- algunos endpoints/cuotas la devuelven como 429 "Too
+      // Many Requests" en vez de 403 "quotaExceeded". Antes esto solo
+      // miraba 403, asi que un 429 real (como paso con search.list) nunca
+      // rotaba a la siguiente key: fallaba directo en la primera agotada y
+      // ni probaba las otras 4 del pool.
+      const isQuotaError = (res.status === 403 && (reason === 'quotaExceeded' || reason === 'dailyLimitExceeded'))
+        || res.status === 429;
+      if (isQuotaError) {
+        lastErr = new Error(reason || 'rate_limited');
         ytKeyIndex = (ytKeyIndex + 1) % keys.length;
         continue;
       }
