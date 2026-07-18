@@ -3050,6 +3050,12 @@
       account.youtube_channel_id = channelId;
       hint.textContent = 'Escribe tu @handle de YouTube (necesitas al menos una API key guardada en la sección YouTube) para que el panel detecte solo cuando arrancas un directo, sin tener que pegar el link cada vez.';
       toast('Canal de YouTube conectado');
+      // Sin esto, si ya habia un chat conectado del canal ANTERIOR,
+      // ytLiveChatId/ytCurrentVideoTitle se quedaban pegados con ese
+      // directo viejo (el panel seguia diciendo "en directo" con el titulo
+      // de otro canal) y los watchers ni llegaban a chequear el canal
+      // nuevo, porque se frenan solos si creen que ya hay un chat activo.
+      disconnectYoutubeChat(false);
       startYoutubeChannelWatcher();
       updateHomeDashboard();
     } catch (err) {
