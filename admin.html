@@ -360,39 +360,63 @@
   /* Panelito "Conectado a" al lado del texto chico del banner del
      Dashboard: de un vistazo, a que canal de Kick/YouTube esta enganchado
      el chat combinado (sin tener que ir a Home a revisar). */
+  /* Ahora vive en la viñeta (.dashboard-switch), entre "Pagos" y "Probar
+     chat", no en el banner de color -- por eso usa los mismos tonos
+     neutros de tarjeta que .dashboard-switch-btn en vez de blanco
+     traslucido sobre fondo de color. */
   .dashboard-connected {
-    margin-left: auto;
     display: flex;
     align-items: center;
     gap: 10px;
     flex-shrink: 0;
+    margin-left: 48px;
   }
   .dashboard-connected-label {
     font-size: 11px;
     font-weight: 800;
     text-transform: uppercase;
     letter-spacing: .04em;
-    opacity: .75;
+    color: var(--ink-mute);
   }
   .dashboard-connected-chip {
     display: flex;
     align-items: center;
     gap: 6px;
-    background: rgba(255,255,255,.16);
+    background: var(--card);
+    box-shadow: var(--shadow);
     border: none;
     border-radius: 999px;
     padding: 5px 12px 5px 8px;
     font-size: 12.5px;
     font-weight: 800;
     font-family: inherit;
-    color: inherit;
+    color: var(--ink-soft);
     cursor: pointer;
-    transition: background .15s;
+    transition: background .15s, color .15s;
   }
-  .dashboard-connected-chip:hover { background: rgba(255,255,255,.28); }
-  .dashboard-connected-chip img, .dashboard-connected-chip svg { width: 15px; height: 15px; flex-shrink: 0; }
+  .dashboard-connected-chip:hover { color: var(--ink); background: var(--accent-50); }
+  .dashboard-connected-chip img, .dashboard-connected-chip svg { width: 15px; height: 15px; object-fit: contain; flex-shrink: 0; }
   .dashboard-connected-chip.is-off { opacity: .55; }
   @media (max-width: 780px) { .dashboard-connected { display: none; } }
+  @media (max-width: 900px) { .dashboard-switch { flex-wrap: wrap; } }
+
+  /* Estado del celular en el banner de Yape (igual idea que "Conectado a"
+     del Dashboard, pero para el celular que vigila la pantalla de Yape en
+     vez de Kick/YouTube): chip blanco traslucido sobre el banner de color,
+     a la derecha, con el mismo punto de estado. */
+  .yape-phone-status {
+    margin-left: auto;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(255,255,255,.16);
+    border-radius: 999px;
+    padding: 7px 14px;
+    font-size: 12.5px;
+    font-weight: 800;
+  }
+  @media (max-width: 700px) { .yape-phone-status { display: none; } }
 
   /* Pestañita propia (no un prompt() del navegador) que se abre justo
      debajo del chip clickeado, para cambiar el usuario/handle ahi mismo
@@ -541,8 +565,76 @@
     align-items: center;
     gap: 8px;
   }
-  #dashboard-chat-log { max-height: none; height: calc(100vh - 300px); min-height: 320px; }
+  #dashboard-chat-log, #kick-chat-log { max-height: none; height: calc(100vh - 300px); min-height: 320px; }
+  #dashboard-chat-log .kick-msg { font-size: var(--dash-chat-font, 14.9px); }
+  /* Lupa +/- propia de cada panel (Kick/YouTube), independiente de la del
+     chat combinado del Dashboard. */
+  #kick-chat-log .kick-msg { font-size: var(--kick-chat-font, 14.9px); }
+  #youtube-chat-log .kick-msg { font-size: var(--yt-chat-font, 14.9px); }
+  #youtube-chat-log .yt-superchat-card { font-size: var(--yt-chat-font, 14.9px); }
+  /* "Solo chat": esconde header/sidebar/banner y estira el chat combinado
+     a pantalla completa, dejando la viñeta (chat/pagos/probar chat) como
+     unico control visible arriba. Se activa/desactiva con un boton, no
+     cambia de vista real -- solo maquilla el layout. */
+  body.chat-focus-mode .app-header,
+  body.chat-focus-mode .sidebar {
+    display: none;
+  }
+  body.chat-focus-mode #section-dashboard .section-banner {
+    display: none;
+  }
+  body.chat-focus-mode .wrap {
+    max-width: none;
+    padding: 14px 16px 16px;
+  }
+  body.chat-focus-mode #section-dashboard {
+    margin-top: 0;
+  }
+  body.chat-focus-mode #dashboard-chat-log {
+    height: calc(100vh - 140px);
+  }
+  .dashboard-switch-btn--focus.is-on { background: var(--accent-50); color: var(--accent); }
+  .dash-font-ctrl {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    margin-left: 8px;
+  }
+  .dash-font-btn {
+    margin-left: 0 !important;
+    padding: 8px 13px;
+  }
+  .dash-font-btn svg { width: 16px; height: 16px; }
+
+  /* ---------- Luz de "hay pagos pendientes" ---------- */
+  /* Solo el boton "Pagos" de adentro del Dashboard (no el sidebar): toda
+     la casilla se ilumina (fondo + resplandor hacia afuera), titilando
+     entre su color normal y ambar, para que el streamer la note de reojo
+     sin ir hasta la pestaña de pagos a revisar. */
+  .dashboard-switch-btn.has-pending {
+    animation: pendingGlowSwitch 1.4s ease-in-out infinite;
+  }
+  @keyframes pendingGlowSwitch {
+    0%, 100% { background: var(--card); box-shadow: 0 0 0 0 rgba(245,181,74,0); color: var(--ink-soft); }
+    50% { background: var(--amber-soft); box-shadow: 0 0 16px 3px rgba(245,181,74,.55); color: var(--amber); }
+  }
+  .dashboard-switch-btn.has-pending.active {
+    animation: pendingGlowSwitchActive 1.4s ease-in-out infinite;
+  }
+  @keyframes pendingGlowSwitchActive {
+    0%, 100% { background: var(--accent-50); box-shadow: 0 0 0 0 rgba(245,181,74,0); color: var(--accent); }
+    50% { background: var(--amber-soft); box-shadow: 0 0 16px 3px rgba(245,181,74,.55); color: var(--amber); }
+  }
   #dashboard-cards { display: flex; flex-direction: column; gap: 12px; max-height: calc(100vh - 340px); min-height: 280px; overflow-y: auto; padding: 2px; }
+  /* Lupa +/- de las tarjetas de pagos del Dashboard: zoom (no transform)
+     para que la tarjeta ocupe su tamaño real agrandado/achicado dentro del
+     flujo de la lista, en vez de superponerse con las de al lado. */
+  #dashboard-cards .card { zoom: var(--dash-pay-zoom, 1); }
+  /* Sin tarjetas visibles el min-height de arriba no debe seguir
+     reservando espacio -- si no, "Todo tranquilo por aqui" queda
+     empujado mas abajo de lo que deberia en vez de pegado a los tabs.
+     La clase la pone applyFilterIn segun visibleCount. */
+  #dashboard-cards.is-empty { min-height: 0; }
 
   /* La scrollbar del sistema (blanca por defecto en Windows/Chrome) desentona
      con el panel, que ahora es fijo oscuro: se estiliza para que combine con
@@ -833,8 +925,20 @@
   .card.is-rejected .card-avatar,
   .card.is-done .card-avatar { background: linear-gradient(135deg, #B4A6BE, #9C8FA6); box-shadow: none; }
 
-  .card-main { grid-area: main; display: flex; align-items: center; gap: 9px; flex-wrap: wrap; }
-  .card-name { font-weight: 900; font-size: 15.5px; color: var(--ink); }
+  /* @nombre, estado y hora SIEMPRE en un solo renglon, sea cual sea el
+     zoom de la tarjeta (ver --dash-pay-zoom): si el nombre es largo se
+     trunca con "...", nunca empuja el estado/hora a un renglon nuevo. */
+  .card-main { grid-area: main; display: flex; align-items: center; gap: 9px; flex-wrap: nowrap; min-width: 0; }
+  .card-name {
+    font-weight: 900;
+    font-size: 15.5px;
+    color: var(--ink);
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .card-status, .card-time { flex-shrink: 0; }
   .card-time { color: var(--ink-mute); font-size: 12.5px; font-weight: 700; }
 
   .card-status {
@@ -940,6 +1044,11 @@
   .btn-reject:hover { background: var(--red); border-color: var(--red); color: #fff; }
   .btn-dismiss { background: var(--card); border-color: var(--accent-100); color: var(--accent); }
   .btn-dismiss:hover { background: var(--accent); border-color: var(--accent); color: #fff; }
+  /* btn-retry ("Mostrar de nuevo") y btn-dismiss ("Quitar del overlay")
+     ocupan el mismo slot, alternando segun el estado (ver actionsFor): sin
+     un ancho compartido, el boton (y el de borrar al lado) saltaba de
+     lugar cada vez que el texto cambiaba de largo. */
+  .btn-retry, .btn-dismiss { min-width: 178px; justify-content: center; }
   .btn-trash {
     background: transparent;
     border-color: transparent;
@@ -1046,6 +1155,9 @@
      generico de la app. */
   #kick-channel-live-dot.live, #kick-chat-dot.live { background: var(--kick-green); box-shadow: 0 0 0 0 rgba(83,252,24,.55); }
   #youtube-channel-live-dot.live, #youtube-chat-dot.live { background: var(--yt-red); box-shadow: 0 0 0 0 rgba(255,0,0,.55); }
+  /* En "Conectado a" del Dashboard, verde/gris para las dos plataformas
+     por igual (no rojo de YouTube) -- solo importa si esta en directo. */
+  #dashboard-connected-kick-live-dot.live, #dashboard-connected-youtube-live-dot.live { background: var(--kick-green); box-shadow: 0 0 0 0 rgba(83,252,24,.55); }
   #kick-channel-status-text.live { color: var(--kick-green-dark); }
   #youtube-channel-status-text.live { color: var(--yt-red); }
   .kick-pause-btn {
@@ -1065,6 +1177,14 @@
   }
   .kick-pause-btn svg { width: 13px; height: 13px; }
   .kick-pause-btn:hover { color: var(--ink); }
+  /* Un poco mas grande que el resto de los botones de la cabecera del chat
+     (Borrar chat, lupas, etc.): es el que mas se usa, conviene que salte
+     mas a la vista y sea mas facil de clickear. */
+  .kick-pause-btn--lg {
+    font-size: 13.5px;
+    padding: 8px 16px;
+  }
+  .kick-pause-btn--lg svg { width: 15px; height: 15px; }
   .kick-pause-btn.paused { color: #fff; background: var(--accent); }
   .yt-ext-status {
     display: inline-flex;
@@ -1098,11 +1218,13 @@
     flex-direction: column;
     gap: 7px;
   }
+  /* En em (no px fijo) para que tambien escale con la lupa +/- del chat
+     del Dashboard, igual que .kick-emote. */
   .dash-src-icon {
-    width: 15px;
-    height: 15px;
+    width: 1em;
+    height: 1em;
     object-fit: contain;
-    vertical-align: -2px;
+    vertical-align: -0.13em;
     margin-right: 5px;
     flex-shrink: 0;
   }
@@ -1126,17 +1248,97 @@
   .kick-msg:active { background: var(--accent-100); }
   .kick-msg.kick-msg-active { background: var(--teal-soft); box-shadow: inset 3px 0 0 var(--teal); }
   .kick-msg.kick-msg-active:hover { background: var(--teal-soft); }
-  /* Un superchat no es un mensaje mas: se destaca con el mismo dorado que
-     el "ribbon" de DONATION del overlay, para que salte a la vista en medio
-     del chat comun y quede claro que clickearlo aprueba/muestra el pago
-     (no solo resalta el mensaje, como los demas). */
-  .kick-msg.kick-msg-superchat {
-    background: linear-gradient(120deg, rgba(191,149,63,.16), rgba(179,135,40,.10));
-    box-shadow: inset 3px 0 0 #bf953f;
+  /* Un superchat ya no es una linea de chat resaltada: es un rectangulo
+     aparte (parecido al que muestra YouTube en su propio chat en vivo),
+     con el color de tramo real por monto/moneda (--sc-color, ver
+     ytTierColor) en la cabecera -- para que salte a la vista que ES un
+     superchat, no solo un mensaje destacado. En em (no px) para que
+     tambien escale con la lupa +/- del chat combinado del Dashboard. */
+  .yt-superchat-card {
+    font-size: var(--dash-chat-font, 14.9px);
+    border-radius: 10px;
+    overflow: hidden;
+    cursor: pointer;
+    box-shadow: var(--shadow);
+    margin: 2px 0;
+    position: relative;
+  }
+  .yt-superchat-card:hover { filter: brightness(1.05); }
+  /* Seleccionado = actualmente en el overlay (ver renderRow/onOverlay):
+     mismo anillo teal que usa .kick-msg-active para un mensaje resaltado. */
+  /* Mismo "prendido" que un mensaje comun resaltado (.kick-msg-active: fondo
+     teal + franja al costado), no solo el anillo -- .is-selected la pone el
+     superchat (segun onOverlay, ver renderRow), .kick-msg-active el aviso
+     de nuevo miembro (toggleYoutubeHighlight), pero se ven igual. */
+  .yt-superchat-card.is-selected, .yt-superchat-card.kick-msg-active {
+    box-shadow: 0 0 0 3px var(--teal), var(--shadow);
+  }
+  .yt-superchat-card.is-selected .yt-superchat-body,
+  .yt-superchat-card.kick-msg-active .yt-superchat-body {
+    background: color-mix(in srgb, var(--teal) 30%, color-mix(in srgb, var(--sc-color, #2979FF) 45%, #06251f));
+  }
+  .yt-superchat-head {
+    display: flex;
+    align-items: center;
+    gap: 0.5em;
+    background: var(--sc-color, #2979FF);
+    color: #06251f;
+    padding: 0.45em 0.6em;
     font-weight: 800;
   }
-  .kick-msg.kick-msg-superchat:hover { background: linear-gradient(120deg, rgba(191,149,63,.26), rgba(179,135,40,.18)); }
-  .kick-msg.kick-msg-superchat.kick-msg-active { box-shadow: inset 3px 0 0 var(--teal); }
+  .yt-superchat-avatar {
+    width: 1.8em;
+    height: 1.8em;
+    border-radius: 50%;
+    overflow: hidden;
+    flex-shrink: 0;
+    background: rgba(0,0,0,.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .yt-superchat-avatar img { width: 100%; height: 100%; object-fit: cover; }
+  .yt-superchat-avatar-fallback { font-weight: 900; font-size: 0.9em; color: #06251f; }
+  .yt-superchat-who {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    gap: 0.05em;
+  }
+  .yt-superchat-name {
+    font-size: 0.92em;
+    font-weight: 800;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: flex;
+    align-items: center;
+  }
+  .yt-superchat-amount { font-size: 1.05em; font-weight: 900; }
+  /* "NUEVO MIEMBRO" no es un monto: sin mas separacion del nombre queda
+     todo pegado/apretado arriba, a diferencia del monto que es corto. */
+  .yt-superchat-card--member .yt-superchat-who { gap: 0.25em; }
+  .yt-superchat-card--member .yt-superchat-amount { font-size: 0.85em; letter-spacing: .02em; }
+  .yt-superchat-body {
+    background: color-mix(in srgb, var(--sc-color, #2979FF) 45%, #06251f);
+    color: #F2F2F2;
+    padding: 0.5em 0.7em;
+    font-size: 0.92em;
+    font-weight: 600;
+    line-height: 1.4;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+  /* El icono chico de plataforma (Kick/YouTube) que se prepende en el chat
+     combinado del Dashboard (ver mirrorToDashboardChat) queda flotando
+     como esquina de la tarjeta en vez de en su propia linea. */
+  .yt-superchat-card > .dash-src-icon {
+    position: absolute;
+    top: 6px;
+    right: 8px;
+    margin: 0;
+    filter: drop-shadow(0 1px 2px rgba(0,0,0,.5));
+  }
   .kick-who {
     display: inline-flex;
     align-items: center;
@@ -1148,11 +1350,16 @@
   /* Imagen real de Twemoji para banderas/emoji (Windows no las dibuja bien
      con la fuente del sistema, ver script de twemoji en el head). */
   img.emoji { height: 1em; width: 1em; margin: 0 .05em 0 .1em; vertical-align: -0.1em; }
-  .kick-emote { height: 22px; width: auto; vertical-align: middle; margin: 0 1px; }
+  /* En em (no px fijo) para que escale junto con el font-size del mensaje
+     que lo contiene -- asi la lupa +/- del chat del Dashboard tambien
+     agranda/achica los emotes y stickers de Kick, no solo el texto. */
+  .kick-emote { height: 1.48em; width: auto; vertical-align: middle; margin: 0 1px; }
+  /* En em (no px fijo) para que tambien escalen con la lupa +/- del chat
+     del Dashboard, igual que .kick-emote/.dash-src-icon. */
   .kick-badge-icon {
     display: inline-block;
     flex-shrink: 0;
-    height: 16px; width: 16px;
+    height: 1.07em; width: 1.07em;
     margin-left: 2px;
     background-size: contain;
     background-repeat: no-repeat;
@@ -1160,7 +1367,7 @@
   }
   .yt-badge-icon {
     display: inline-block;
-    height: 16px; width: 16px;
+    height: 1.07em; width: 1.07em;
     vertical-align: middle;
     margin-left: 2px;
     flex-shrink: 0;
@@ -1183,6 +1390,9 @@
   .kick-badge-og { background: linear-gradient(120deg, #6E2D8F, #4E1E68); }
   .kick-badge-founder { background: linear-gradient(120deg, #F0A020, #C57E10); }
   .kick-badge-subscriber { background: linear-gradient(120deg, #6E2D8F, #8B34A8); }
+  /* Verde, como el aviso de "nuevo miembro" del chat en vivo real de
+     YouTube (distinto del morado generico de insignia de suscriptor). */
+  .kick-badge-yt-new-member { background: linear-gradient(120deg, #0F9D58, #14C77A); }
   .kick-badge-gifter { background: linear-gradient(120deg, #F0A020, #E48A12); }
   .kick-badge-staff { background: linear-gradient(120deg, #2C1B36, #4E1E68); }
   .kick-badge-verified { background: linear-gradient(120deg, #14C6A4, #20E7B9); }
@@ -1611,10 +1821,10 @@
 
         <div class="home-card">
           <div class="home-card-head">
-            <span class="home-card-title">Estado ahora mismo</span>
+            <span class="home-card-title">Conexión del panel</span>
           </div>
           <div class="home-status-row">
-            <div class="live-badge" id="conn"><span class="live-dot"></span><span id="conn-text">Conectando…</span></div>
+            <div class="live-badge" id="conn" title="Si esto se corta, los pagos/superchats nuevos no van a aparecer solos hasta que se reconecte."><span class="live-dot"></span><span id="conn-text">Conectando…</span></div>
           </div>
           <div id="phones"></div>
         </div>
@@ -1765,29 +1975,6 @@
           <div class="section-banner-title">Dashboard</div>
           <div class="section-banner-sub">Chat de Kick + YouTube combinado, y pagos pendientes de las dos plataformas</div>
         </div>
-        <div class="dashboard-connected" id="dashboard-connected">
-          <span class="dashboard-connected-label">Conectado a</span>
-          <div class="dashboard-connected-item">
-            <button type="button" class="dashboard-connected-chip" id="dashboard-connected-kick" onclick="toggleDashboardEditPopover('kick')" title="Click para cambiar el usuario de Kick">
-              <img src="logo/kick1.png" alt="">
-              <span id="dashboard-connected-kick-text">—</span>
-            </button>
-            <div class="dashboard-edit-popover" id="dashboard-edit-kick" style="display:none">
-              <input id="dashboard-edit-kick-input" type="text" placeholder="usuario de kick" onkeydown="if(event.key==='Enter')saveDashboardKickEdit()">
-              <button onclick="saveDashboardKickEdit()">Guardar</button>
-            </div>
-          </div>
-          <div class="dashboard-connected-item">
-            <button type="button" class="dashboard-connected-chip" id="dashboard-connected-youtube" onclick="toggleDashboardEditPopover('youtube')" title="Click para cambiar el canal de YouTube">
-              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M21.6 7.2s-.2-1.5-.8-2.2c-.8-.9-1.7-.9-2.1-1C15.9 3.8 12 3.8 12 3.8h0s-3.9 0-6.7.2c-.4 0-1.3.1-2.1 1-.6.7-.8 2.2-.8 2.2S2.2 9 2.2 10.8v1.9c0 1.8.2 3.6.2 3.6s.2 1.5.8 2.2c.8.9 1.9.9 2.3 1 1.7.2 7.1.2 7.1.2s3.9 0 6.7-.2c.4 0 1.3-.1 2.1-1 .6-.7.8-2.2.8-2.2s.2-1.8.2-3.6v-1.9c0-1.8-.2-3.6-.2-3.6zM9.9 15.3V8.6l6 3.4-6 3.3z"/></svg>
-              <span id="dashboard-connected-youtube-text">—</span>
-            </button>
-            <div class="dashboard-edit-popover" id="dashboard-edit-youtube" style="display:none">
-              <input id="dashboard-edit-youtube-input" type="text" placeholder="@handle de youtube" onkeydown="if(event.key==='Enter')saveDashboardYoutubeEdit()">
-              <button onclick="saveDashboardYoutubeEdit()">Guardar</button>
-            </div>
-          </div>
-        </div>
       </div>
       <div class="dashboard-switch">
         <button class="dashboard-switch-btn active" data-view="chat" onclick="setDashboardView('chat')">
@@ -1798,23 +1985,60 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
           Pagos <span class="count" id="count-dash-pending">0</span>
         </button>
+        <div class="dashboard-connected" id="dashboard-connected">
+          <span class="dashboard-connected-label">Conectado a</span>
+          <div class="dashboard-connected-item">
+            <button type="button" class="dashboard-connected-chip" id="dashboard-connected-kick" onclick="toggleDashboardEditPopover('kick')" title="Click para cambiar el usuario de Kick">
+              <img src="logo/kick1.png" alt="">
+              <span id="dashboard-connected-kick-text">—</span>
+              <span class="kick-dot" id="dashboard-connected-kick-live-dot" title="En directo / offline"></span>
+            </button>
+            <div class="dashboard-edit-popover" id="dashboard-edit-kick" style="display:none">
+              <input id="dashboard-edit-kick-input" type="text" placeholder="usuario de kick" onkeydown="if(event.key==='Enter')saveDashboardKickEdit()">
+              <button onclick="saveDashboardKickEdit()">Guardar</button>
+            </div>
+          </div>
+          <div class="dashboard-connected-item">
+            <button type="button" class="dashboard-connected-chip" id="dashboard-connected-youtube" onclick="toggleDashboardEditPopover('youtube')" title="Click para cambiar el canal de YouTube">
+              <img src="logo/youtubelogo.png" alt="">
+              <span id="dashboard-connected-youtube-text">—</span>
+              <span class="kick-dot" id="dashboard-connected-youtube-live-dot" title="En directo / offline"></span>
+            </button>
+            <div class="dashboard-edit-popover" id="dashboard-edit-youtube" style="display:none">
+              <input id="dashboard-edit-youtube-input" type="text" placeholder="@handle de youtube" onkeydown="if(event.key==='Enter')saveDashboardYoutubeEdit()">
+              <button onclick="saveDashboardYoutubeEdit()">Guardar</button>
+            </div>
+          </div>
+        </div>
         <button class="dashboard-switch-btn dashboard-switch-btn--test" id="test-chat-btn" onclick="sendTestChatMessages()" style="margin-left:auto" title="Manda mensajes variados de prueba (Kick y YouTube) para ver como se ve el chat, sin tocar nada real">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6M10 3v5.5L5.5 17a2 2 0 0 0 1.8 3h9.4a2 2 0 0 0 1.8-3L14 8.5V3"/></svg>
           Probar chat
+        </button>
+        <button class="dashboard-switch-btn dashboard-switch-btn--focus" id="dashboard-focus-btn" onclick="toggleDashboardChatFocus()" title="Mostrar solo el chat, a pantalla completa">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M8 21H5a2 2 0 0 1-2-2v-3M16 21h3a2 2 0 0 0 2-2v-3"/></svg>
+          Solo chat
         </button>
       </div>
       <div class="dashboard-view">
         <div class="dashboard-col" data-view="chat">
           <div class="kick-chat-head">
             <span id="dashboard-chat-status">Chat combinado (Kick + YouTube)</span>
-            <button id="dashboard-pause-btn" class="kick-pause-btn" onclick="toggleDashboardPause()" title="Pausar los dos chats (Kick y YouTube)">
+            <button id="dashboard-pause-btn" class="kick-pause-btn kick-pause-btn--lg" onclick="toggleDashboardPause()" title="Pausar los dos chats (Kick y YouTube)">
               <svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>
-              Pausar
+              Pausar chat
             </button>
             <button id="dashboard-clear-btn" class="kick-pause-btn" onclick="clearDashboardChat()" title="Borrar solo esta vista combinada (no toca el historial de Kick ni YouTube)">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg>
               Borrar chat
             </button>
+            <div class="dash-font-ctrl">
+              <button type="button" class="kick-pause-btn dash-font-btn" onclick="adjustDashboardChatFont(-1)" title="Achicar la letra del chat">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="10" r="6.5"/><path d="m20.5 20.5-4.6-4.6M7.5 10h5"/></svg>
+              </button>
+              <button type="button" class="kick-pause-btn dash-font-btn" onclick="adjustDashboardChatFont(1)" title="Agrandar la letra del chat">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="10" r="6.5"/><path d="m20.5 20.5-4.6-4.6M10 7.5v5M7.5 10h5"/></svg>
+              </button>
+            </div>
           </div>
           <div id="dashboard-chat-log" class="kick-chat-log"><div class="kick-chat-empty">Esperando mensajes de Kick o YouTube…</div></div>
         </div>
@@ -1838,6 +2062,14 @@
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg>
                 Vaciar historial
               </button>
+              <div class="dash-font-ctrl">
+                <button type="button" class="kick-pause-btn dash-font-btn" onclick="adjustDashboardCardsZoom(-1)" title="Achicar las tarjetas de pagos">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="10" r="6.5"/><path d="m20.5 20.5-4.6-4.6M7.5 10h5"/></svg>
+                </button>
+                <button type="button" class="kick-pause-btn dash-font-btn" onclick="adjustDashboardCardsZoom(1)" title="Agrandar las tarjetas de pagos">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="10" r="6.5"/><path d="m20.5 20.5-4.6-4.6M10 7.5v5M7.5 10h5"/></svg>
+                </button>
+              </div>
             </div>
           </div>
           <div class="tab-hint" id="dash-tab-hint"></div>
@@ -1861,6 +2093,10 @@
         <div class="section-banner-text">
           <div class="section-banner-title">Yape</div>
           <div class="section-banner-sub">Aprueba los pagos para que salgan en tu overlay</div>
+        </div>
+        <div class="yape-phone-status" id="yape-phone-status" title="Estado del celular que vigila tus yapes (igual que en Home)">
+          <span class="kick-dot" id="yape-phone-dot"></span>
+          <span id="yape-phone-status-text">Celular sin vincular</span>
         </div>
       </div>
     <div class="tabs">
@@ -1911,14 +2147,22 @@
       <div class="kick-chat-head">
         <span class="kick-dot" id="kick-chat-dot"></span>
         <span id="kick-chat-status">Chat de Kick</span>
-        <button id="kick-pause-btn" class="kick-pause-btn" onclick="toggleKickPause()" title="Pausar el chat">
+        <button id="kick-pause-btn" class="kick-pause-btn kick-pause-btn--lg" onclick="toggleKickPause()" title="Pausar el chat">
           <svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>
-          Pausar
+          Pausar chat
         </button>
         <button id="kick-clear-btn" class="kick-pause-btn" onclick="clearKickChat()" title="Borrar el chat">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg>
           Borrar chat
         </button>
+        <div class="dash-font-ctrl">
+          <button type="button" class="kick-pause-btn dash-font-btn" onclick="adjustKickChatFont(-1)" title="Achicar la letra del chat">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="10" r="6.5"/><path d="m20.5 20.5-4.6-4.6M7.5 10h5"/></svg>
+          </button>
+          <button type="button" class="kick-pause-btn dash-font-btn" onclick="adjustKickChatFont(1)" title="Agrandar la letra del chat">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="10" r="6.5"/><path d="m20.5 20.5-4.6-4.6M10 7.5v5M7.5 10h5"/></svg>
+          </button>
+        </div>
       </div>
       <div id="kick-chat-log" class="kick-chat-log"></div>
     </div>
@@ -1988,9 +2232,9 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14 21 3"/></svg>
           Abrir chat
         </button>
-        <button id="youtube-pause-btn" class="kick-pause-btn" onclick="toggleYoutubePause()" title="Pausar el chat">
+        <button id="youtube-pause-btn" class="kick-pause-btn kick-pause-btn--lg" onclick="toggleYoutubePause()" title="Pausar el chat">
           <svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>
-          Pausar
+          Pausar chat
         </button>
         <button id="youtube-clear-btn" class="kick-pause-btn" onclick="clearYoutubeChat()" title="Borrar el chat">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg>
@@ -2000,6 +2244,14 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
           Desconectar
         </button>
+        <div class="dash-font-ctrl">
+          <button type="button" class="kick-pause-btn dash-font-btn" onclick="adjustYoutubeChatFont(-1)" title="Achicar la letra del chat">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="10" r="6.5"/><path d="m20.5 20.5-4.6-4.6M7.5 10h5"/></svg>
+          </button>
+          <button type="button" class="kick-pause-btn dash-font-btn" onclick="adjustYoutubeChatFont(1)" title="Agrandar la letra del chat">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="10" r="6.5"/><path d="m20.5 20.5-4.6-4.6M10 7.5v5M7.5 10h5"/></svg>
+          </button>
+        </div>
       </div>
       <div id="youtube-chat-log" class="kick-chat-log"></div>
     </div>
@@ -2052,17 +2304,99 @@
 
   // Viñeta de seleccion del Dashboard: alterna entre el chat combinado y
   // los pendientes combinados, una vista a la vez (no lado a lado).
+  // Se acuerda que vista del Dashboard esta a la vista (chat o pagos): la
+  // luz de "pago nuevo" solo tiene sentido avisar si justo estoy mirando
+  // el chat combinado y no la lista de pagos (ahi ya lo estoy viendo).
+  let currentDashboardView = 'chat';
   function setDashboardView(view) {
+    currentDashboardView = view;
     document.querySelectorAll('.dashboard-switch-btn').forEach((b) => {
       b.classList.toggle('active', b.dataset.view === view);
     });
     document.querySelectorAll('#section-dashboard .dashboard-col').forEach((c) => {
       c.style.display = c.dataset.view === view ? '' : 'none';
     });
+    if (view === 'payments') {
+      document.querySelector('.dashboard-switch-btn[data-view="payments"]')?.classList.remove('has-pending');
+    }
     try { localStorage.setItem('yape-dash-view', view); } catch { /* sin storage, no pasa nada */ }
   }
   window.setDashboardView = setDashboardView;
   setDashboardView(localStorage.getItem('yape-dash-view') || 'chat');
+
+  // "Solo chat": esconde header/sidebar/banner para agrandar el chat
+  // combinado, sin tocar la vista real (chat/pagos) que sigue igual.
+  function toggleDashboardChatFocus() {
+    const on = document.body.classList.toggle('chat-focus-mode');
+    const btn = document.getElementById('dashboard-focus-btn');
+    if (btn) btn.classList.toggle('is-on', on);
+  }
+  window.toggleDashboardChatFocus = toggleDashboardChatFocus;
+
+  // Tamaño de letra del chat combinado (lupa +/-), solo afecta esta vista.
+  let dashChatFontStep = parseInt(localStorage.getItem('yape-dash-chat-font') || '0', 10) || 0;
+  function applyDashboardChatFont() {
+    const el = document.getElementById('dashboard-chat-log');
+    if (!el) return;
+    const base = 14.9;
+    const size = base + dashChatFontStep * 1.6;
+    el.style.setProperty('--dash-chat-font', size.toFixed(1) + 'px');
+  }
+  function adjustDashboardChatFont(dir) {
+    dashChatFontStep = Math.max(-2, Math.min(16, dashChatFontStep + dir));
+    try { localStorage.setItem('yape-dash-chat-font', String(dashChatFontStep)); } catch { /* sin storage, no pasa nada */ }
+    applyDashboardChatFont();
+  }
+  window.adjustDashboardChatFont = adjustDashboardChatFont;
+  applyDashboardChatFont();
+
+  // Zoom +/- de las tarjetas de pagos del Dashboard, mismo patron que la
+  // lupa del chat combinado (independiente de esa, cada una con su propio
+  // paso guardado).
+  let dashPayZoomStep = parseInt(localStorage.getItem('yape-dash-pay-zoom') || '0', 10) || 0;
+  function applyDashboardCardsZoom() {
+    const el = document.getElementById('dashboard-cards');
+    if (!el) return;
+    const zoom = 1 + dashPayZoomStep * 0.12;
+    el.style.setProperty('--dash-pay-zoom', zoom.toFixed(2));
+  }
+  function adjustDashboardCardsZoom(dir) {
+    dashPayZoomStep = Math.max(-3, Math.min(10, dashPayZoomStep + dir));
+    try { localStorage.setItem('yape-dash-pay-zoom', String(dashPayZoomStep)); } catch { /* sin storage, no pasa nada */ }
+    applyDashboardCardsZoom();
+  }
+  window.adjustDashboardCardsZoom = adjustDashboardCardsZoom;
+  applyDashboardCardsZoom();
+
+  // Lupa +/- propia del chat de Kick y del chat de YouTube en sus paneles
+  // (no el combinado del Dashboard, que ya tiene la suya), mismo patron.
+  let kickChatFontStep = parseInt(localStorage.getItem('yape-kick-chat-font') || '0', 10) || 0;
+  function applyKickChatFont() {
+    const el = document.getElementById('kick-chat-log');
+    if (!el) return;
+    el.style.setProperty('--kick-chat-font', (14.9 + kickChatFontStep * 1.6).toFixed(1) + 'px');
+  }
+  function adjustKickChatFont(dir) {
+    kickChatFontStep = Math.max(-2, Math.min(16, kickChatFontStep + dir));
+    try { localStorage.setItem('yape-kick-chat-font', String(kickChatFontStep)); } catch { /* sin storage, no pasa nada */ }
+    applyKickChatFont();
+  }
+  window.adjustKickChatFont = adjustKickChatFont;
+  applyKickChatFont();
+
+  let ytChatFontStep = parseInt(localStorage.getItem('yape-yt-chat-font') || '0', 10) || 0;
+  function applyYoutubeChatFont() {
+    const el = document.getElementById('youtube-chat-log');
+    if (!el) return;
+    el.style.setProperty('--yt-chat-font', (14.9 + ytChatFontStep * 1.6).toFixed(1) + 'px');
+  }
+  function adjustYoutubeChatFont(dir) {
+    ytChatFontStep = Math.max(-2, Math.min(16, ytChatFontStep + dir));
+    try { localStorage.setItem('yape-yt-chat-font', String(ytChatFontStep)); } catch { /* sin storage, no pasa nada */ }
+    applyYoutubeChatFont();
+  }
+  window.adjustYoutubeChatFont = adjustYoutubeChatFont;
+  applyYoutubeChatFont();
 
   // ---------- Cuentas: sesion, login/registro y enlaces propios ----------
   // El panel exige iniciar sesion: cada streamer solo ve y toca sus pagos
@@ -2278,6 +2612,7 @@
       wrap.appendChild(phoneBadge('mute', 'Celular sin vincular',
         'Vincula la app Yape Alert de tu celular con el código que aparece en Home'));
       updateHomeDashboard();
+      updateYapePhoneStatus();
       return;
     }
     devices
@@ -2288,6 +2623,28 @@
         wrap.appendChild(phoneBadge(st.cls, st.text, st.title, d.id));
       });
     updateHomeDashboard();
+    updateYapePhoneStatus();
+  }
+
+  // Mismo estado que ya se ve en Home (#phones), pero resumido en un solo
+  // chip en el banner de Yape: el streamer no tiene que ir hasta Home para
+  // saber si el celular que le manda los yapes sigue vivo.
+  const PHONE_STATUS_DOT_COLOR = { off: '#ff7a7a', warn: '#FFC94D', '': '#53FC18' };
+  function updateYapePhoneStatus() {
+    const dot = document.getElementById('yape-phone-dot');
+    const text = document.getElementById('yape-phone-status-text');
+    if (!dot || !text) return;
+    if (!devices.length) {
+      dot.style.background = 'var(--ink-mute)';
+      text.textContent = 'Celular sin vincular';
+      return;
+    }
+    const statuses = devices.map(deviceStatus);
+    const worst = statuses.find((s) => s.cls === 'off') || statuses.find((s) => s.cls === 'warn') || statuses[0];
+    dot.style.background = PHONE_STATUS_DOT_COLOR[worst.cls] || PHONE_STATUS_DOT_COLOR[''];
+    text.textContent = devices.length > 1
+      ? `${devices.length} celulares · ${worst.cls === '' ? 'todo bien' : 'revisar uno'}`
+      : worst.text;
   }
 
   function upsertDevice(row) {
@@ -2332,6 +2689,7 @@
   }
 
   async function logout() {
+    if (!confirm('¿Cerrar sesión?')) return;
     await sb.auth.signOut();
     location.reload();
   }
@@ -2473,13 +2831,12 @@
   }
   window.saveKickChatroom = saveKickChatroom;
 
-  // Muestra el formulario para pegar el link del directo: alcanza con el
-  // pool global de API keys (ver GLOBAL_YOUTUBE_API_KEYS), asi que ya
-  // funciona de entrada sin que la cuenta tenga que cargar las suyas.
+  // El panel de YouTube ya no muestra la caja de "pegar el link del
+  // directo" -- el watcher (startYoutubeChannelWatcher) detecta el
+  // directo solo, asi que la seccion queda siempre escondida (se deja en
+  // el DOM/JS por si algun dia hace falta un fallback manual de vuelta).
   function updateYoutubeConnectVisibility() {
-    const hasKeys = GLOBAL_YOUTUBE_API_KEYS.length > 0
-      || !!(account && account.youtube_api_keys && account.youtube_api_keys.length);
-    document.getElementById('youtube-connect-section').style.display = hasKeys ? '' : 'none';
+    document.getElementById('youtube-connect-section').style.display = 'none';
   }
 
   async function saveYoutubeKeys() {
@@ -2806,6 +3163,14 @@
       dcard.style.setProperty('--card-accent-rgb', accentRgb);
       if (window.twemoji) twemoji.parse(dcard);
     }
+    // La tarjeta de superchat del chat en vivo (yt-superchat-card, tanto en
+    // el panel de YouTube como su espejo del Dashboard) se resalta cuando
+    // ese pago esta en el overlay -- asi se ve de un vistazo cual esta
+    // seleccionado ahora mismo, sin tener que ir a la pestaña de Pagos.
+    if (p.source === 'youtube' && p.youtube_message_id) {
+      document.querySelectorAll(`.yt-superchat-card[data-yt-msg-id="${CSS.escape(p.youtube_message_id)}"]`)
+        .forEach((el) => el.classList.toggle('is-selected', !!p.onOverlay));
+    }
     applyFilter();
   }
 
@@ -2818,20 +3183,141 @@
     return `${parseInt(m[1], 16)}, ${parseInt(m[2], 16)}, ${parseInt(m[3], 16)}`;
   }
 
-  // Colores de "tramo" del panelito dorado del overlay (ver ytTierColor/
-  // tierColor en overlay.html), reutilizados aca solo como acento visual
-  // de cada tarjeta del Dashboard -- por monto para YouTube (7 colores
-  // oficiales de Super Chat), fijo morado para cualquier yape.
+  // Colores de "tramo" del panelito dorado del overlay -- copiado tal cual
+  // de tierColor/ytTierColor en overlay.html (mismos tramos y logica de
+  // moneda) para que la tarjeta del Dashboard se vea igual que el overlay,
+  // no una aproximacion aparte. Antes esta funcion asumia siempre USD por
+  // monto crudo (parseFloat de "S/ 15.00" da NaN, asi que CUALQUIER
+  // superchat en soles u otra moneda quedaba siempre en el tramo mas bajo)
+  // y pintaba cualquier yape de morado fijo en vez de por tramo de monto
+  // como hace el overlay de verdad.
+  function tierColor(amount) {
+    const n = parseFloat(amount) || 0;
+    if (n >= 99.99) return '#DD2919';
+    if (n >= 49.99) return '#E02766';
+    if (n >= 19.99) return '#F17E05';
+    if (n >= 9.99) return '#FCCB2B';
+    if (n >= 4.99) return '#1DE9B6';
+    return '#00E5F9';
+  }
+  const YT_TIER_COLORS = ['#2979FF', '#00E5F9', '#1DE9B6', '#FCCB2B', '#F17E05', '#E02766', '#DD2919'];
+  const YT_USD_TIERS = [1, 2, 5, 10, 20, 50, 100];
+  const YT_KNOWN_TIERS = { ARS: [10, 20, 50, 100, 200, 500, 1000] };
+  const YT_CURRENCIES = [
+    { code: 'USD', rate: 1, prefixes: ['US$', 'USD'] },
+    { code: 'EUR', rate: 0.92, prefixes: ['€', 'EUR'] },
+    { code: 'GBP', rate: 0.79, prefixes: ['£', 'GBP'] },
+    { code: 'JPY', rate: 155, prefixes: ['JP¥', '¥', 'JPY'] },
+    { code: 'KRW', rate: 1380, prefixes: ['₩', 'KRW'] },
+    { code: 'TWD', rate: 32, prefixes: ['NT$', 'TWD'] },
+    { code: 'HKD', rate: 7.8, prefixes: ['HK$', 'HKD'] },
+    { code: 'SGD', rate: 1.35, prefixes: ['S$', 'SGD'] },
+    { code: 'INR', rate: 86, prefixes: ['₹', 'INR', 'Rs'] },
+    { code: 'IDR', rate: 16300, prefixes: ['Rp', 'IDR'] },
+    { code: 'VND', rate: 25400, prefixes: ['₫', 'VND'] },
+    { code: 'THB', rate: 34, prefixes: ['฿', 'THB'] },
+    { code: 'PHP', rate: 58, prefixes: ['₱', 'PHP'] },
+    { code: 'MYR', rate: 4.5, prefixes: ['RM', 'MYR'] },
+    { code: 'AUD', rate: 1.55, prefixes: ['A$', 'AUD'] },
+    { code: 'NZD', rate: 1.7, prefixes: ['NZ$', 'NZD'] },
+    { code: 'CAD', rate: 1.42, prefixes: ['CA$', 'CAD', 'C$'] },
+    { code: 'CHF', rate: 0.88, prefixes: ['CHF', 'Fr.'] },
+    { code: 'MXN', rate: 18.5, prefixes: ['MX$', 'MXN'] },
+    { code: 'BRL', rate: 5.6, prefixes: ['R$', 'BRL'] },
+    { code: 'ARS', rate: 1250, prefixes: ['ARS$', 'AR$', 'ARS'] },
+    { code: 'CLP', rate: 950, prefixes: ['CLP$', 'CLP'] },
+    { code: 'COP', rate: 4100, prefixes: ['COP$', 'CO$', 'COP'] },
+    { code: 'PEN', rate: 3.75, prefixes: ['S/.', 'S/', 'PEN'] },
+    { code: 'ZAR', rate: 18.5, prefixes: ['ZAR', 'R'] },
+    { code: 'TRY', rate: 34, prefixes: ['₺', 'TRY'] },
+    { code: 'NOK', rate: 10.9, prefixes: ['NOK', 'kr'] },
+    { code: 'SEK', rate: 10.6, prefixes: ['SEK'] },
+    { code: 'DKK', rate: 6.9, prefixes: ['DKK'] },
+    { code: 'PLN', rate: 4.0, prefixes: ['zł', 'PLN'] },
+    { code: 'CZK', rate: 23.5, prefixes: ['Kč', 'CZK'] },
+    { code: 'HUF', rate: 380, prefixes: ['Ft', 'HUF'] },
+    { code: 'RON', rate: 4.6, prefixes: ['lei', 'RON'] },
+    { code: 'ILS', rate: 3.7, prefixes: ['₪', 'ILS'] },
+    { code: 'SAR', rate: 3.75, prefixes: ['SAR', 'SR', 'ر.س'] },
+    { code: 'NGN', rate: 1600, prefixes: ['₦', 'NGN'] },
+    { code: 'BAM', rate: 1.8, prefixes: ['BAM', 'KM'] },
+    { code: 'BYN', rate: 3.3, prefixes: ['BYN', 'Br'] },
+  ];
+  const YT_CURRENCY_PREFIXES = YT_CURRENCIES
+    .flatMap((c) => c.prefixes.map((p) => ({ prefix: p, code: c.code })))
+    .concat([{ prefix: '$', code: 'USD' }])
+    .sort((a, b) => b.prefix.length - a.prefix.length);
+  const YT_RATE_BY_CODE = Object.fromEntries(YT_CURRENCIES.map((c) => [c.code, c.rate]));
+
+  function matchYoutubeCurrency(text) {
+    const s = String(text || '');
+    return YT_CURRENCY_PREFIXES.find((p) => s.includes(p.prefix)) || { prefix: '', code: 'USD' };
+  }
+
+  function detectYoutubeCurrency(text) {
+    return matchYoutubeCurrency(text).code;
+  }
+
+  function parseYoutubeAmount(text) {
+    const raw = String(text || '');
+    const { prefix } = matchYoutubeCurrency(raw);
+    const withoutPrefix = prefix ? raw.split(prefix).join('') : raw;
+    const cleaned = withoutPrefix.replace(/[^\d.,]/g, '');
+    if (!cleaned) return 0;
+    const lastComma = cleaned.lastIndexOf(',');
+    const lastDot = cleaned.lastIndexOf('.');
+    let decimalSep = null;
+    if (lastComma > -1 && lastDot > -1) {
+      decimalSep = lastComma > lastDot ? ',' : '.';
+    } else if (lastComma > -1) {
+      const parts = cleaned.split(',');
+      decimalSep = (parts.length === 2 && parts[1].length <= 2) ? ',' : null;
+    } else if (lastDot > -1) {
+      const parts = cleaned.split('.');
+      decimalSep = (parts.length === 2 && parts[1].length <= 2) ? '.' : null;
+    }
+    let normalized;
+    if (decimalSep === ',') normalized = cleaned.split('.').join('').replace(',', '.');
+    else if (decimalSep === '.') normalized = cleaned.split(',').join('');
+    else normalized = cleaned.replace(/[.,]/g, '');
+    return parseFloat(normalized) || 0;
+  }
+
+  function niceRound125(x) {
+    if (!(x > 0)) return x;
+    const mag = Math.pow(10, Math.floor(Math.log10(x)));
+    let best = mag;
+    let bestDiff = Infinity;
+    [1, 2, 5, 10].forEach((step) => {
+      const candidate = step * mag;
+      const diff = Math.abs(Math.log(x / candidate));
+      if (diff < bestDiff) { bestDiff = diff; best = candidate; }
+    });
+    return best;
+  }
+
+  function ytTierColor(amountText) {
+    const code = detectYoutubeCurrency(amountText);
+    if (code === 'PEN' || code === 'USD') return tierColor(parseYoutubeAmount(amountText));
+    const amount = parseYoutubeAmount(amountText);
+    const knownTiers = YT_KNOWN_TIERS[code];
+    let color = YT_TIER_COLORS[0];
+    if (knownTiers) {
+      for (let i = 0; i < knownTiers.length; i++) {
+        if (amount >= knownTiers[i]) color = YT_TIER_COLORS[i];
+      }
+      return color;
+    }
+    const rate = YT_RATE_BY_CODE[code] || 1;
+    for (let i = 0; i < YT_USD_TIERS.length; i++) {
+      const localTier = niceRound125(YT_USD_TIERS[i] * rate);
+      if (amount >= localTier) color = YT_TIER_COLORS[i];
+    }
+    return color;
+  }
+
   function dashboardCardColor(p) {
-    if (p.source !== 'youtube') return getComputedStyle(document.documentElement).getPropertyValue('--yape').trim() || '#6E2D8F';
-    const n = parseFloat(p.amount) || 0;
-    if (n >= 100) return '#DD2919';
-    if (n >= 50) return '#E02766';
-    if (n >= 20) return '#F17E05';
-    if (n >= 10) return '#FCCB2B';
-    if (n >= 5) return '#1DE9B6';
-    if (n >= 2) return '#00E5F9';
-    return '#2979FF';
+    return p.source === 'youtube' ? ytTierColor(p.amount) : tierColor(p.amount);
   }
 
   function escapeHtml(s) {
@@ -2863,7 +3349,22 @@
       bumpCount('count-yt-' + key, ytCounts[key], prevYtCounts, key);
       bumpCount('count-dash-tab-' + key, counts[key] + ytCounts[key], prevDashCounts, key);
     }
-    bumpCount('count-dash-pending', counts.pending + ytCounts.pending, prevDashCounts, 'switchBadge');
+    const dashPending = counts.pending + ytCounts.pending;
+    const prevDashPending = prevDashCounts.switchBadge;
+    bumpCount('count-dash-pending', dashPending, prevDashCounts, 'switchBadge');
+
+    // No titila solo por haber pendientes al entrar -- solo cuando sube el
+    // numero (llego uno nuevo) y en ese momento estoy viendo el chat
+    // combinado, no la lista de pagos.
+    const payBtn = document.querySelector('.dashboard-switch-btn[data-view="payments"]');
+    if (payBtn) {
+      if (prevDashPending !== null && dashPending > prevDashPending && currentDashboardView === 'chat') {
+        payBtn.classList.add('has-pending');
+      }
+      if (dashPending === 0 || currentDashboardView === 'payments') {
+        payBtn.classList.remove('has-pending');
+      }
+    }
   }
 
   function applyFilterIn(container, emptyElm, tab) {
@@ -2874,6 +3375,7 @@
       if (match) visibleCount++;
     });
     emptyElm.style.display = visibleCount === 0 ? 'block' : 'none';
+    container.classList.toggle('is-empty', visibleCount === 0);
   }
 
   function applyFilter() {
@@ -3032,13 +3534,25 @@
   async function clearApprovedRejected(source) {
     const isYt = source === 'youtube';
     const isDash = source === 'dashboard';
+    // Solo el "Vaciar historial" del Dashboard se lleva tambien los
+    // pendientes (a pedido: se quedaban acumulados sin salida, ya que
+    // muchos de ellos son en realidad pagos ya mostrados que nunca se
+    // "quitaron del overlay" a mano). Yape/YouTube por separado siguen
+    // siendo solo aprobado/rechazado. Nunca se borra el que esta EN VIVO
+    // ahora mismo en el overlay -- ese hay que sacarlo de pantalla primero.
+    const includePending = isDash;
     const ids = Array.from(paymentsById.values())
       .filter((p) => isDash || (p.source === 'youtube') === isYt)
-      .filter((p) => tabOf(p) === 'approved' || tabOf(p) === 'rejected')
+      .filter((p) => {
+        const t = tabOf(p);
+        if (t === 'approved' || t === 'rejected') return true;
+        return includePending && t === 'pending' && !p.onOverlay;
+      })
       .map((p) => p.id);
     if (ids.length === 0) { toast('No hay nada que borrar ahí'); return; }
     const label = isDash ? 'pago(s)/superchat(s)' : isYt ? 'superchat(s)' : 'pago(s)';
-    if (!confirm(`¿Borrar ${ids.length} ${label} aprobado(s) o rechazado(s)? No se puede deshacer.`)) return;
+    const scope = includePending ? 'pendiente(s), aprobado(s) o rechazado(s)' : 'aprobado(s) o rechazado(s)';
+    if (!confirm(`¿Borrar ${ids.length} ${label} ${scope}? No se puede deshacer.`)) return;
     const { error } = await sb.from('payments').delete().in('id', ids);
     if (error) { toast('No se pudo limpiar el historial'); console.error(error); return; }
     toast('Historial limpiado');
@@ -3048,7 +3562,7 @@
   function setConn(ok) {
     const el = document.getElementById('conn');
     el.classList.toggle('off', !ok);
-    document.getElementById('conn-text').textContent = ok ? 'En vivo' : 'Sin conexión';
+    document.getElementById('conn-text').textContent = ok ? 'Panel conectado' : 'Panel sin conexión';
   }
 
   async function loadInitial() {
@@ -3346,7 +3860,7 @@
     btn.classList.toggle('paused', paused);
     btn.innerHTML = paused
       ? `${ICON.play} Reanudar (${queued})`
-      : `${ICON.pause} Pausar`;
+      : `${ICON.pause} Pausar chat`;
   }
 
   function toggleDashboardPause() {
@@ -3362,6 +3876,7 @@
   // botones de "Borrar chat" en sus paneles si lo que se quiere es borrar
   // de verdad.
   function clearDashboardChat() {
+    if (!confirm('¿Borrar el chat combinado mostrado hasta ahora? No se puede deshacer.')) return;
     document.getElementById('dashboard-chat-log').innerHTML = '<div class="kick-chat-empty">Sin mensajes todavía.</div>';
     dashMirroredMsgs.clear();
     toast('Chat combinado borrado (Kick y YouTube siguen con su propio historial intacto)');
@@ -3458,7 +3973,7 @@
       btn.classList.toggle('paused', kickPaused);
       btn.innerHTML = kickPaused
         ? `${ICON.play} Reanudar (${kickPausedQueue.length})`
-        : `${ICON.pause} Pausar`;
+        : `${ICON.pause} Pausar chat`;
     }
     updateDashboardPauseBtn();
   }
@@ -3524,6 +4039,7 @@
       document.getElementById('kick-channel-avatar').src = avatar;
       document.getElementById('kick-channel-username').textContent = displayName;
       document.getElementById('kick-channel-live-dot').classList.toggle('live', isLive);
+      document.getElementById('dashboard-connected-kick-live-dot')?.classList.toggle('live', isLive);
 
       if (isLive) {
         if (kickCurrentChatroomId) setKickLastLiveAt(kickCurrentChatroomId);
@@ -3938,10 +4454,11 @@
   async function refreshYoutubeChannelHead() {
     const head = document.getElementById('youtube-channel-head');
     const channelId = account && account.youtube_channel_id;
+    const isLive = !!ytLiveChatId;
+    document.getElementById('dashboard-connected-youtube-live-dot')?.classList.toggle('live', isLive);
     if (!channelId) { head.style.display = 'none'; return; }
     const info = await fetchYoutubeChannelInfo(channelId);
     if (!info) { head.style.display = 'none'; return; }
-    const isLive = !!ytLiveChatId;
     const statusEl = document.getElementById('youtube-channel-status-text');
     document.getElementById('youtube-channel-avatar').src = info.avatar;
     document.getElementById('youtube-channel-username').textContent = info.title;
@@ -4156,7 +4673,7 @@
     if (type === 'newSponsorEvent') {
       const d = item.snippet.newSponsorDetails || {};
       const level = d.memberLevelName ? ` · ${escapeHtml(d.memberLevelName)}` : '';
-      return `<span class="kick-badge kick-badge-subscriber">NUEVO MIEMBRO${level}</span>`;
+      return `<span class="kick-badge kick-badge-yt-new-member">NUEVO MIEMBRO${level}</span>`;
     }
     return '';
   }
@@ -4199,32 +4716,70 @@
     const author = item.authorDetails || {};
     const type = item.snippet && item.snippet.type;
     const isSuperchat = type === 'superChatEvent' || type === 'superStickerEvent';
-    const div = document.createElement('div');
-    div.className = isSuperchat ? 'kick-msg kick-msg-superchat' : 'kick-msg';
-    div.title = isSuperchat
-      ? 'Click para aprobar y mostrar este superchat en el overlay'
-      : 'Click para mostrar este mensaje en el overlay';
-    const superchatTag = isSuperchat ? '<span class="kick-badge kick-badge-yt-superchat">SUPERCHAT</span>' : '';
-    const milestoneTag = ytMilestoneTag(item);
+    const isNewMember = type === 'newSponsorEvent';
+    const milestoneTag = isNewMember ? '' : ytMilestoneTag(item);
     const badgesHtml = renderYtBadgeIcons(author) ?? renderYtBadges(ytBadgesFor(author), author.displayName);
     // Un superchat/supersticker NO usa snippet.displayMessage para el
     // mensaje: la API oficial rellena ese campo con un texto propio tipo
     // "CLP 500 from @user" (pensado para clientes que no saben leer
     // superChatDetails/superStickerDetails), asi que si se usara tal cual
     // salia ese texto feo y duplicado en vez del comentario real (o nada,
-    // si no escribio nada). El monto real ya se ve aparte en la cola de
-    // abajo, aca solo va el comentario.
+    // si no escribio nada). El monto real va aparte (amountText).
     let contentText = (item.snippet && item.snippet.displayMessage) || '';
+    let amountText = '';
     if (isSuperchat) {
       const details = (type === 'superChatEvent' ? item.snippet.superChatDetails : item.snippet.superStickerDetails) || {};
       contentText = details.userComment || '';
+      amountText = details.amountDisplayString || '';
     }
-    // data-yt-author marca este "slot" de insignias para poder actualizarlo
-    // despues sin redibujar el mensaje entero (ver refreshYtBadgesForAuthor):
-    // un mensaje ya pintado por la API (sin icono real todavia) se
-    // actualiza solo apenas llega el dato real de la extension, en vez de
-    // quedarse pegado con el chip de texto hasta el proximo mensaje nuevo.
-    div.innerHTML = `<span class="kick-who"><span class="kick-msg-time">${escapeHtml(ytMessageTime(item))}</span><span class="kick-user">${escapeHtml(author.displayName || '?')}:</span><span class="yt-badges-slot" data-yt-author="${escapeHtml(author.displayName || '')}">${badgesHtml}</span>${superchatTag}${milestoneTag}</span> ${renderYoutubeContent(contentText)}`;
+    const div = document.createElement('div');
+    // Un superchat ya NO se pinta como una linea de chat resaltada en dorado
+    // (kick-msg-superchat): es un rectangulo aparte, con el color de tramo
+    // real (ytTierColor, el mismo que usa el overlay) en la cabecera y el
+    // monto bien visible -- parecido a como YouTube lo muestra en su propio
+    // chat en vivo, para que salte a la vista que ES un superchat y no un
+    // mensaje mas. Un "nuevo miembro" usa la MISMA tarjeta (mismo golpe de
+    // vista), pero verde fijo y "NUEVO MIEMBRO" donde iria el monto -- no es
+    // un pago, asi que no entra a la cola de aprobacion.
+    if (isSuperchat || isNewMember) {
+      div.className = 'yt-superchat-card' + (isNewMember ? ' yt-superchat-card--member' : '');
+      div.dataset.ytMsgId = item.id;
+      div.title = isNewMember
+        ? 'Click para mostrar este aviso en el overlay'
+        : 'Click para aprobar y mostrar este superchat en el overlay';
+      const details = isNewMember ? (item.snippet.newSponsorDetails || {}) : null;
+      const memberLabel = isNewMember
+        ? `NUEVO MIEMBRO${details.memberLevelName ? ` · ${details.memberLevelName}` : ''}`
+        : '';
+      const color = isNewMember ? '#0F9D58' : ytTierColor(amountText);
+      div.style.setProperty('--sc-color', color);
+      const avatarHtml = author.profileImageUrl
+        ? `<img src="${escapeHtml(author.profileImageUrl)}" alt="">`
+        : `<span class="yt-superchat-avatar-fallback">${escapeHtml((author.displayName || '?').slice(0, 1).toUpperCase())}</span>`;
+      // El logo/insignia de miembro (badgesHtml) no va en la tarjeta de
+      // "nuevo miembro": es redundante, la tarjeta entera ya dice que lo es.
+      const nameBadges = isNewMember ? '' : `<span class="yt-badges-slot" data-yt-author="${escapeHtml(author.displayName || '')}">${badgesHtml}</span>`;
+      div.innerHTML = `
+        <div class="yt-superchat-head">
+          <span class="yt-superchat-avatar">${avatarHtml}</span>
+          <span class="yt-superchat-who">
+            <span class="yt-superchat-name">${nameBadges}${escapeHtml(author.displayName || '?')}</span>
+            <span class="yt-superchat-amount">${isNewMember ? escapeHtml(memberLabel) : escapeHtml(amountText)}</span>
+          </span>
+        </div>
+        ${contentText ? `<div class="yt-superchat-body">${renderYoutubeContent(contentText)}</div>` : ''}
+      `;
+    } else {
+      div.className = 'kick-msg';
+      div.title = 'Click para mostrar este mensaje en el overlay';
+      // data-yt-author marca este "slot" de insignias para poder
+      // actualizarlo despues sin redibujar el mensaje entero (ver
+      // refreshYtBadgesForAuthor): un mensaje ya pintado por la API (sin
+      // icono real todavia) se actualiza solo apenas llega el dato real de
+      // la extension, en vez de quedarse pegado con el chip de texto hasta
+      // el proximo mensaje nuevo.
+      div.innerHTML = `<span class="kick-who"><span class="kick-msg-time">${escapeHtml(ytMessageTime(item))}</span><span class="kick-user">${escapeHtml(author.displayName || '?')}:</span><span class="yt-badges-slot" data-yt-author="${escapeHtml(author.displayName || '')}">${badgesHtml}</span>${milestoneTag}</span> ${renderYoutubeContent(contentText)}`;
+    }
     if (window.twemoji) twemoji.parse(div);
     // Un superchat ya entro solo a la cola de payments (insertYoutubeSuperchat,
     // ver handleYoutubeMessage): clickearlo en el log hace exactamente lo
@@ -4240,6 +4795,9 @@
         act(paymentId, (p && p.onOverlay) ? 'dismiss' : 'approve');
         return;
       }
+      // "Nuevo miembro" no es un pago (no entra a payments): mismo aviso
+      // en vivo aparte que un mensaje resaltado, solo que ya viene con su
+      // propia tarjeta verde en vez de tener que resaltarla a mano.
       toggleYoutubeHighlight(item, div);
     });
     log.appendChild(div);
@@ -4275,8 +4833,18 @@
   const recentSuperchatFingerprints = new Map(); // fingerprint -> timestamp
   const SUPERCHAT_DEDUPE_WINDOW_MS = 20000;
 
+  // El monto crudo NO sirve tal cual para el fingerprint: la extension y la
+  // API oficial escriben el mismo monto distinto ("100,00 ARS" vs
+  // "ARS 100,00", vista sobre todo justo al conectar a un canal que ya
+  // estaba en vivo, donde las dos fuentes pueden traer el mismo superchat
+  // viejo) -- si no se normaliza, esas dos strings no calzan como
+  // duplicado y entra dos veces. Se usa moneda+numero (parseYoutubeAmount/
+  // detectYoutubeCurrency, ya usados por ytTierColor) en vez del texto tal
+  // cual.
   function superchatFingerprint(name, amount, message) {
-    return `${name}|${amount}|${message}`;
+    const code = detectYoutubeCurrency(amount);
+    const value = parseYoutubeAmount(amount);
+    return `${name}|${code}:${value}|${message}`;
   }
 
   // Los superchats entran siempre a la cola de aprobacion (payments,
@@ -4403,7 +4971,7 @@
       btn.classList.toggle('paused', ytPaused);
       btn.innerHTML = ytPaused
         ? `${ICON.play} Reanudar (${ytPausedQueue.length})`
-        : `${ICON.pause} Pausar`;
+        : `${ICON.pause} Pausar chat`;
     }
     updateDashboardPauseBtn();
   }
@@ -4591,7 +5159,7 @@
   // Recien aca, con toda variable/funcion del script ya declarada, se
   // puede mostrar la seccion inicial sin pisar el "temporal dead zone"
   // de `let`s posteriores (updateHomeDashboard lee `account`/`devices`).
-  showPlatform(localStorage.getItem('yape-platform') || 'home');
+  showPlatform('home');
 
   // Arranque: si ya hay sesion guardada entra directo; si no, pantalla de
   // acceso (o el formulario de nueva contraseña si viene del enlace de recuperacion).

@@ -298,7 +298,7 @@
       }
       return;
     }
-    showCard({ id: 'youtube-live', name: payload.name, content: payload.content, badges: payload.badges, badgeImages: payload.badgeImages, avatar: payload.avatar, source: 'youtube' }, JSON.stringify(payload));
+    showCard({ id: 'youtube-live', name: payload.name, content: payload.content, badges: payload.badges, badgeImages: payload.badgeImages, avatar: payload.avatar, source: 'youtube', isMembership: payload.isMembership, memberLevel: payload.memberLevel }, JSON.stringify(payload));
     currentSource = 'youtube';
   }
 
@@ -660,13 +660,19 @@
           ? `<img src="${escapeHtml(avatarUrl)}" alt="${escapeHtml(name)}">`
           : `<div class="hl-initial">${escapeHtml(name.trim().charAt(0).toUpperCase() || '?')}</div>`)
       : yapeLogoSvg;
-    // El "panelito" de monto es solo para yapes y superchats: un mensaje de
-    // chat resaltado (Kick o YouTube) no tiene donation ribbon.
-    const donation = isChatHighlight
-      ? ''
-      : isYoutube
-        ? `<div class="donation"><div class="donation-title">DONATION</div><div class="donation-subtitle">${escapeHtml(payment.amount || '')}</div></div>`
-        : `<div class="donation"><div class="donation-title">YAPE</div><div class="donation-subtitle">S/. ${payment.amount || '0.00'}</div></div>`;
+    // El "panelito" dorado de monto es normalmente solo para yapes y
+    // superchats (un mensaje de chat resaltado comun no lo tiene), pero un
+    // "nuevo miembro"/aniversario (toggleYoutubeHighlight en admin.html)
+    // llega igual que un mensaje resaltado (mismo layout de siempre) con
+    // isMembership=true -- ahi el panel se muestra igual, solo que en vez
+    // del monto va el nivel de membresia comprado.
+    const donation = payment.isMembership
+      ? `<div class="donation"><div class="donation-title"></div><div class="donation-subtitle">${escapeHtml(payment.memberLevel || '')}</div></div>`
+      : isChatHighlight
+        ? ''
+        : isYoutube
+          ? `<div class="donation"><div class="donation-title">DONATION</div><div class="donation-subtitle">${escapeHtml(payment.amount || '')}</div></div>`
+          : `<div class="donation"><div class="donation-title">YAPE</div><div class="donation-subtitle">S/. ${payment.amount || '0.00'}</div></div>`;
     const nameLine = isChatHighlight
       ? `${escapeHtml(name)}${isKick ? renderKickBadges(payment.badges) : renderYtBadgesCombined(payment.badges, payment.badgeImages)}`
       : escapeHtml(name);
