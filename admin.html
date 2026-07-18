@@ -513,6 +513,19 @@
     padding: 6px 13px;
     font-size: 12px;
   }
+  .ext-hint { font-size: 12.5px; color: var(--ink-mute); line-height: 1.5; margin: 10px 2px 0; }
+  .ext-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+  .ext-actions .icon-btn { font-size: 12.5px; padding: 8px 14px; }
+  .ext-howto {
+    margin-top: 12px;
+    padding: 12px 14px;
+    background: var(--bg);
+    border-radius: 12px;
+    font-size: 12.5px;
+    color: var(--ink-soft);
+  }
+  .ext-howto ol { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 5px; }
+  .ext-howto code { background: var(--card); padding: 1px 5px; border-radius: 5px; font-size: 12px; }
 
   /* ---------- Home: saludo + tarjetas tipo dashboard ---------- */
   .home-greeting { margin: 0 2px 20px; }
@@ -926,17 +939,17 @@
   .card.is-done .card-avatar { background: linear-gradient(135deg, #B4A6BE, #9C8FA6); box-shadow: none; }
 
   /* @nombre, estado y hora SIEMPRE en un solo renglon, sea cual sea el
-     zoom de la tarjeta (ver --dash-pay-zoom): si el nombre es largo se
-     trunca con "...", nunca empuja el estado/hora a un renglon nuevo. */
-  .card-main { grid-area: main; display: flex; align-items: center; gap: 9px; flex-wrap: nowrap; min-width: 0; }
+     zoom de la tarjeta (ver --dash-pay-zoom): el nombre NUNCA se corta con
+     "..." (con zoom in grande quedaba ilegible) -- se muestra completo, y
+     si no entra se pisa con lo de al lado antes que pasar a un renglon
+     nuevo o truncarse. */
+  .card-main { grid-area: main; display: flex; align-items: center; gap: 9px; flex-wrap: nowrap; min-width: 0; overflow: visible; }
   .card-name {
     font-weight: 900;
     font-size: 15.5px;
     color: var(--ink);
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
     white-space: nowrap;
+    flex-shrink: 0;
   }
   .card-status, .card-time { flex-shrink: 0; }
   .card-time { color: var(--ink-mute); font-size: 12.5px; font-weight: 700; }
@@ -1238,6 +1251,12 @@
     padding: 3px 6px;
     margin: 0 -6px;
     transition: background .12s;
+    /* .kick-chat-log es flex-column con overflow-y:auto: sin esto, los
+       flex items se COMPRIMEN para caber en el alto fijo del contenedor
+       en vez de desbordar y activar el scroll -- cada mensaje/superchat
+       se iba achicando de a poco (algunos hasta casi desaparecer) en vez
+       de que aparezca la barra de scroll de una. */
+    flex-shrink: 0;
     /* Mismo motivo que .card-message: un spam tipo "EEEEEEEEEEEEEEEEEEE"
        sin espacios se corta a mitad de palabra y pasa al siguiente
        renglon, en vez de estirar el chat de lado. */
@@ -1256,22 +1275,29 @@
      tambien escale con la lupa +/- del chat combinado del Dashboard. */
   .yt-superchat-card {
     font-size: var(--dash-chat-font, 14.9px);
-    border-radius: 10px;
+    border-radius: 9px;
     overflow: hidden;
     cursor: pointer;
     box-shadow: var(--shadow);
     margin: 2px 0;
     position: relative;
+    flex-shrink: 0;
+    transition: transform .18s cubic-bezier(.34,1.56,.64,1), box-shadow .18s;
   }
   .yt-superchat-card:hover { filter: brightness(1.05); }
   /* Seleccionado = actualmente en el overlay (ver renderRow/onOverlay):
-     mismo anillo teal que usa .kick-msg-active para un mensaje resaltado. */
-  /* Mismo "prendido" que un mensaje comun resaltado (.kick-msg-active: fondo
-     teal + franja al costado), no solo el anillo -- .is-selected la pone el
-     superchat (segun onOverlay, ver renderRow), .kick-msg-active el aviso
-     de nuevo miembro (toggleYoutubeHighlight), pero se ven igual. */
+     anillo + resplandor teal bien marcado, con un pulso continuo (no un
+     estado quieto) para que salte a la vista cual esta EN VIVO ahora mismo
+     -- .is-selected la pone el superchat (segun onOverlay, ver renderRow),
+     .kick-msg-active el aviso de nuevo miembro (toggleYoutubeHighlight),
+     pero se ven igual. */
   .yt-superchat-card.is-selected, .yt-superchat-card.kick-msg-active {
-    box-shadow: 0 0 0 3px var(--teal), var(--shadow);
+    animation: superchatSelectedPulse 1.5s ease-in-out infinite;
+    z-index: 1;
+  }
+  @keyframes superchatSelectedPulse {
+    0%, 100% { box-shadow: 0 0 0 3px var(--teal), 0 0 14px 2px rgba(32,231,185,.5), var(--shadow); }
+    50% { box-shadow: 0 0 0 4.5px var(--teal), 0 0 28px 9px rgba(32,231,185,.8), var(--shadow); }
   }
   .yt-superchat-card.is-selected .yt-superchat-body,
   .yt-superchat-card.kick-msg-active .yt-superchat-body {
@@ -1280,15 +1306,15 @@
   .yt-superchat-head {
     display: flex;
     align-items: center;
-    gap: 0.5em;
+    gap: 0.4em;
     background: var(--sc-color, #2979FF);
     color: #06251f;
-    padding: 0.45em 0.6em;
+    padding: 0.32em 0.5em;
     font-weight: 800;
   }
   .yt-superchat-avatar {
-    width: 1.8em;
-    height: 1.8em;
+    width: 1.5em;
+    height: 1.5em;
     border-radius: 50%;
     overflow: hidden;
     flex-shrink: 0;
@@ -1298,7 +1324,7 @@
     justify-content: center;
   }
   .yt-superchat-avatar img { width: 100%; height: 100%; object-fit: cover; }
-  .yt-superchat-avatar-fallback { font-weight: 900; font-size: 0.9em; color: #06251f; }
+  .yt-superchat-avatar-fallback { font-weight: 900; font-size: 0.85em; color: #06251f; }
   .yt-superchat-who {
     display: flex;
     flex-direction: column;
@@ -1306,7 +1332,7 @@
     gap: 0.05em;
   }
   .yt-superchat-name {
-    font-size: 0.92em;
+    font-size: 0.85em;
     font-weight: 800;
     white-space: nowrap;
     overflow: hidden;
@@ -1314,18 +1340,18 @@
     display: flex;
     align-items: center;
   }
-  .yt-superchat-amount { font-size: 1.05em; font-weight: 900; }
+  .yt-superchat-amount { font-size: 0.95em; font-weight: 900; }
   /* "NUEVO MIEMBRO" no es un monto: sin mas separacion del nombre queda
      todo pegado/apretado arriba, a diferencia del monto que es corto. */
   .yt-superchat-card--member .yt-superchat-who { gap: 0.25em; }
-  .yt-superchat-card--member .yt-superchat-amount { font-size: 0.85em; letter-spacing: .02em; }
+  .yt-superchat-card--member .yt-superchat-amount { font-size: 0.78em; letter-spacing: .02em; }
   .yt-superchat-body {
     background: color-mix(in srgb, var(--sc-color, #2979FF) 45%, #06251f);
     color: #F2F2F2;
-    padding: 0.5em 0.7em;
-    font-size: 0.92em;
+    padding: 0.4em 0.6em;
+    font-size: 0.85em;
     font-weight: 600;
-    line-height: 1.4;
+    line-height: 1.35;
     overflow-wrap: anywhere;
     word-break: break-word;
   }
@@ -1827,6 +1853,37 @@
             <div class="live-badge" id="conn" title="Si esto se corta, los pagos/superchats nuevos no van a aparecer solos hasta que se reconecte."><span class="live-dot"></span><span id="conn-text">Conectando…</span></div>
           </div>
           <div id="phones"></div>
+        </div>
+
+        <!-- Opcional (mejora los iconos de miembro de YouTube y evita gastar
+             cuota de la API), por eso va despues del celular/conexion, que
+             si son necesarios para que el panel funcione. -->
+        <div class="home-card" id="home-ext-card">
+          <div class="home-card-head">
+            <span class="home-card-title">Extensión de YouTube (opcional)</span>
+          </div>
+          <div class="home-status-row">
+            <div class="live-badge mute" id="ext-status-badge"><span class="live-dot"></span><span id="ext-status-text">Buscando la extensión en este navegador…</span></div>
+          </div>
+          <p class="ext-hint" id="ext-hint" style="display:none">
+            No la detectamos en este navegador. Sin ella, YouTube igual funciona normal (chat, superchats, nuevo miembro), solo que se gasta cuota de la API y el ícono de miembro se ve genérico en vez del real.
+          </p>
+          <div class="ext-actions" id="ext-actions" style="display:none">
+            <a class="icon-btn accent" id="ext-download-btn" href="yape-alert-extension.zip" download>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+              Descargar extensión
+            </a>
+            <button class="icon-btn" type="button" onclick="toggleExtHowto()">¿Cómo la instalo?</button>
+          </div>
+          <div class="ext-howto" id="ext-howto" style="display:none">
+            <ol>
+              <li>Descarga el .zip de arriba y descomprímelo en una carpeta.</li>
+              <li>Abre <code>chrome://extensions</code> en una pestaña nueva.</li>
+              <li>Activa "Modo de desarrollador" (arriba a la derecha).</li>
+              <li>Clic en "Cargar descomprimida" y elige la carpeta que descomprimiste.</li>
+              <li>Recarga esta página.</li>
+            </ol>
+          </div>
         </div>
       </div>
 
@@ -3465,11 +3522,19 @@
   }
 
   // La otra mitad de clearChatHighlights: apaga el pago que estuviera en el
-  // overlay cuando se resalta un mensaje de chat nuevo.
+  // overlay cuando se resalta un mensaje de chat nuevo. Mismo patch que usa
+  // act('dismiss') -- no alcanza con on_overlay:false solo: sin marcarlo
+  // dismissed/ever_dismissed, tabOf lo seguia viendo como "pending" y
+  // actionsFor le seguia dibujando el boton "Quitar del overlay" como si
+  // siguiera en vivo, aunque el overlay ya hubiera cambiado a mostrar el
+  // mensaje resaltado (mismo motivo por el que se quedaba pegado en
+  // Pendientes sin poder vaciarse desde el historial).
   async function clearOverlayPayment() {
     const live = Array.from(paymentsById.values()).find((p) => p.onOverlay);
     if (!live) return;
-    const { error } = await sb.from('payments').update({ on_overlay: false }).eq('id', live.id);
+    const patch = { on_overlay: false };
+    if (live.status !== 'rejected') { patch.status = 'dismissed'; patch.ever_dismissed = true; }
+    const { error } = await sb.from('payments').update(patch).eq('id', live.id);
     if (error) console.error(error);
   }
 
@@ -3614,6 +3679,19 @@
   let kickWs = null;
   let kickReconnectTimer = null;
   const KICK_LOG_MAX = 150;
+
+  // Poda el log de chat manteniendolo bajo el tope: un superchat/nuevo
+  // miembro es una celda de mensaje mas, sin trato especial -- se va el
+  // mas viejo primero, sea cual sea su tipo (el problema real de que
+  // "desaparecian antes de que salga el scroll" era que los flex items no
+  // tenian flex-shrink:0, ver .kick-msg/.yt-superchat-card).
+  function pruneLogOldest(log, max) {
+    while (log.children.length > max) {
+      const node = log.firstChild;
+      if (node.dataset && node.dataset.dashKey) dashMirroredMsgs.delete(node.dataset.dashKey);
+      node.remove();
+    }
+  }
 
   function setKickStatus(text, live) {
     document.getElementById('kick-chat-status').textContent = text;
@@ -3836,11 +3914,7 @@
     });
     if (key) { clone.dataset.dashKey = key; dashMirroredMsgs.set(key, clone); }
     log.appendChild(clone);
-    while (log.children.length > DASH_LOG_MAX) {
-      const removed = log.firstChild;
-      if (removed.dataset && removed.dataset.dashKey) dashMirroredMsgs.delete(removed.dataset.dashKey);
-      log.removeChild(removed);
-    }
+    pruneLogOldest(log, DASH_LOG_MAX);
     if (wasNearBottom) log.scrollTop = log.scrollHeight;
   }
 
@@ -3875,11 +3949,17 @@
   // el historial real de Kick/YouTube sigue intacto, con sus propios
   // botones de "Borrar chat" en sus paneles si lo que se quiere es borrar
   // de verdad.
-  function clearDashboardChat() {
+  async function clearDashboardChat() {
     if (!confirm('¿Borrar el chat combinado mostrado hasta ahora? No se puede deshacer.')) return;
     document.getElementById('dashboard-chat-log').innerHTML = '<div class="kick-chat-empty">Sin mensajes todavía.</div>';
     dashMirroredMsgs.clear();
-    toast('Chat combinado borrado (Kick y YouTube siguen con su propio historial intacto)');
+    // Si habia un mensaje resaltado o un superchat en el overlay ahora mismo,
+    // se quita tambien -- no tendria sentido borrar el chat de aca pero
+    // dejar algo de ese chat trabado mostrandose en pantalla.
+    await clearChatHighlights();
+    const live = Array.from(paymentsById.values()).find((p) => p.source === 'youtube' && p.onOverlay);
+    if (live) await act(live.id, 'dismiss');
+    toast('Chat combinado borrado (Kick y YouTube siguen con su propio historial intacto; se quitó lo que estuviera en el overlay)');
   }
   window.clearDashboardChat = clearDashboardChat;
 
@@ -3949,13 +4029,14 @@
 
   // Borra lo que se ve (y lo persistido) sin tocar la conexion: el chat
   // sigue en vivo y los mensajes nuevos se siguen mostrando normal.
-  function clearKickChat() {
+  async function clearKickChat() {
     if (!confirm('¿Borrar todo el chat de Kick mostrado hasta ahora? No se puede deshacer.')) return;
     kickLogEntries = [];
     savePersistedKickLog();
-    if (kickHighlightedEl) kickHighlightedEl.classList.remove('kick-msg-active');
-    kickHighlightedEl = null;
-    kickHighlightedMsgId = null;
+    // clearKickHighlight (no solo resetear las variables locales) manda
+    // ademas el "clear" al overlay: si no, un mensaje resaltado se queda
+    // trabado mostrandose en pantalla aunque el chat ya este vacio aca.
+    await clearKickHighlight();
     document.getElementById('kick-chat-log').innerHTML = '<div class="kick-chat-empty">Sin mensajes todavía.</div>';
     toast('Chat de Kick borrado');
   }
@@ -4513,6 +4594,7 @@
     if (event.source !== window) return;
     const data = event.data;
     if (!data || data.source !== 'yape-alert-ext') return;
+    if (data.type === 'ext-present') { markExtensionInstalled(); return; }
     if (data.type === 'yt-popout-status') { updateYtExtStatus(data.open); return; }
     if (!data.name) return;
     ytTierCache.set(data.name, data);
@@ -4531,6 +4613,45 @@
     el.classList.toggle('open', !!open);
     el.innerHTML = `<span class="dot"></span> ${open ? 'Extensión: pestaña abierta' : 'Extensión: pestaña cerrada'}`;
   }
+
+  // Tarjeta de Home que avisa si la extension (opcional, ver
+  // browser-extension/) esta instalada en ESTE navegador: relay.js manda
+  // un "ext-present" apenas carga la pagina (si esta instalada). Si no
+  // llega nada en un ratito corto, se asume que no esta y se invita a
+  // descargarla/instalarla -- sin bloquear nada, el panel funciona igual
+  // sin ella.
+  let extensionDetected = false;
+  function markExtensionInstalled() {
+    if (extensionDetected) return;
+    extensionDetected = true;
+    clearTimeout(extDetectTimer);
+    const badge = document.getElementById('ext-status-badge');
+    const text = document.getElementById('ext-status-text');
+    if (!badge || !text) return;
+    badge.classList.remove('mute', 'warn');
+    text.textContent = 'Instalada y activa en este navegador ✓';
+    document.getElementById('ext-hint').style.display = 'none';
+    document.getElementById('ext-actions').style.display = 'none';
+    document.getElementById('ext-howto').style.display = 'none';
+  }
+  const extDetectTimer = setTimeout(() => {
+    if (extensionDetected) return;
+    const badge = document.getElementById('ext-status-badge');
+    const text = document.getElementById('ext-status-text');
+    if (!badge || !text) return;
+    badge.classList.remove('mute');
+    badge.classList.add('warn');
+    text.textContent = 'No detectada en este navegador';
+    document.getElementById('ext-hint').style.display = '';
+    document.getElementById('ext-actions').style.display = '';
+  }, 1800);
+
+  function toggleExtHowto() {
+    const el = document.getElementById('ext-howto');
+    if (!el) return;
+    el.style.display = el.style.display === 'none' ? '' : 'none';
+  }
+  window.toggleExtHowto = toggleExtHowto;
 
   // Boton de respaldo por si la apertura automatica de la pestaña fallo
   // (ej. la extension no estaba instalada todavia cuando se conecto el
@@ -4801,7 +4922,7 @@
       toggleYoutubeHighlight(item, div);
     });
     log.appendChild(div);
-    while (log.children.length > KICK_LOG_MAX) log.removeChild(log.firstChild);
+    pruneLogOldest(log, KICK_LOG_MAX);
     if (wasNearBottom) log.scrollTop = log.scrollHeight;
     mirrorToDashboardChat(div, 'youtube', item.id);
   }
@@ -4987,11 +5108,15 @@
   }
   window.toggleYoutubePause = toggleYoutubePause;
 
-  function clearYoutubeChat() {
+  async function clearYoutubeChat() {
     if (!confirm('¿Borrar todo el chat de YouTube mostrado hasta ahora? No se puede deshacer.')) return;
-    if (ytHighlightedEl) ytHighlightedEl.classList.remove('kick-msg-active');
-    ytHighlightedEl = null;
-    ytHighlightedMsgId = null;
+    // clearYtHighlight manda el "clear" al overlay (no solo resetea las
+    // variables locales), y si habia un superchat aprobado mostrandose
+    // ahora mismo, tambien se quita -- si no, quedaba trabado en pantalla
+    // aunque el chat de origen ya este vacio.
+    await clearYtHighlight();
+    const live = Array.from(paymentsById.values()).find((p) => p.source === 'youtube' && p.onOverlay);
+    if (live) await act(live.id, 'dismiss');
     document.getElementById('youtube-chat-log').innerHTML = '<div class="kick-chat-empty">Sin mensajes todavía.</div>';
     toast('Chat de YouTube borrado');
   }
@@ -5098,7 +5223,7 @@
       },
       {
         id: 'test-yt-5', authorDetails: { displayName: 'NuevoMiembro', profileImageUrl: '', isChatOwner: false, isChatModerator: false, isChatSponsor: true, isVerified: false },
-        snippet: { type: 'newSponsorEvent', displayMessage: '', publishedAt: now(), newSponsorDetails: { memberLevelName: 'Nivel 1' } },
+        snippet: { type: 'newSponsorEvent', displayMessage: '', publishedAt: now(), newSponsorDetails: { memberLevelName: 'Fanodric Army 🔥⚡' } },
       },
       {
         id: 'test-yt-6', authorDetails: { displayName: 'ElDueñoDelCanal', profileImageUrl: '', isChatOwner: true, isChatModerator: false, isChatSponsor: false, isVerified: false },
