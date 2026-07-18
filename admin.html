@@ -1602,8 +1602,13 @@
      mueve el texto de ESE mensaje y empuja todo lo de abajo un poquito,
      sin que la logica de scroll (withStableScroll) se entere porque no
      es una insercion nueva. Con ancho fijo tambien (cuadrado) el espacio
-     queda reservado desde el vamos, sin importar cuando cargue. */
-  .kick-emote { height: 1.48em; width: 1.48em; object-fit: contain; vertical-align: middle; margin: 0 1px; }
+     queda reservado desde el vamos, sin importar cuando cargue.
+     Altura 1.35em (menos que el line-height:1.4 de .kick-msg, no 1.48
+     como antes): un emote MAS ALTO que la linea de texto estira ese
+     renglon completo, asi que un mensaje con emote quedaba mas alto que
+     uno sin emote -- distinto alto entre mensajes se sentia como que el
+     chat "no era parejo", ademas de sumarse al desvio de scroll. */
+  .kick-emote { height: 1.35em; width: 1.35em; object-fit: contain; vertical-align: middle; margin: 0 1px; }
   /* En em (no px fijo) para que tambien escalen con la lupa +/- del chat
      del Dashboard, igual que .kick-emote/.dash-src-icon. */
   .kick-badge-icon {
