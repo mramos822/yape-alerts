@@ -3337,25 +3337,12 @@
   };
   const HINT_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 16v-4M12 8h.01"/></svg>';
 
-  function toast(msg) {
-    toastEl.textContent = msg;
-    toastEl.classList.add('show');
-    toastEl.classList.remove('dim');
-    clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => toastEl.classList.remove('show', 'dim'), 2400);
-  }
-
-  // El toast tiene pointer-events:none a proposito (nunca debe tapar un
-  // click ni dejarse seleccionar como texto), asi que no le llega ningun
-  // evento de mouse propio para atenuarse con :hover -- este listener en
-  // document compara la posicion del cursor contra su rectangulo a mano
-  // y prende/apaga la clase "dim" (ver .toast.show.dim en el CSS).
-  document.addEventListener('mousemove', (e) => {
-    if (!toastEl.classList.contains('show')) return;
-    const r = toastEl.getBoundingClientRect();
-    const over = e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom;
-    toastEl.classList.toggle('dim', over);
-  });
+  // Desactivado a pedido: el toast interrumpia demasiado la vista del
+  // overlay/chat aunque se le bajara la opacidad al pasar el mouse, asi
+  // que ahora no hace nada. Se deja como no-op en vez de borrar las ~50
+  // llamadas a toast(...) repartidas por el archivo (aprobar pago, borrar
+  // chat, etc.) para no tocar toda esa superficie sin necesidad.
+  function toast(msg) {}
 
   function amountVal(p) {
     return `${p.amount || '0.00'}`;
