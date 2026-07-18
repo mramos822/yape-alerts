@@ -2471,6 +2471,13 @@
         <span class="yt-ext-status" id="yt-ext-status" title="Si la extension del navegador esta instalada, esto muestra si su pestaña del chat popout esta abierta (necesaria para el tier real y los iconos de las insignias)">
           <span class="dot" id="yt-ext-dot"></span> Extensión: sin detectar
         </span>
+        <!-- Solo visible cuando otro dispositivo de esta cuenta (PC/app) ya
+             es el que se conecta de verdad a YouTube: este dispositivo
+             refleja ese mismo chat en vez de conectarse tambien (ver
+             updateYoutubeFollowerUI). -->
+        <span class="yt-ext-status" id="youtube-follower-status" style="display:none" title="Otro dispositivo de esta cuenta (la PC o la app) ya es el que se conecta a YouTube de verdad; este solo refleja lo que ese vaya recibiendo, para no duplicar superchats.">
+          <span class="dot"></span> Viendo el chat desde otro dispositivo
+        </span>
         <button id="youtube-open-popout-btn" class="kick-pause-btn" onclick="openYoutubePopoutManually()" title="Abrir a mano el chat popout de YouTube (por si no se abrio solo)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14 21 3"/></svg>
           Abrir chat
@@ -2773,7 +2780,11 @@
     connect();
     if (account && account.kick_chatroom_id) connectKickChat(account.kick_chatroom_id);
     updateYoutubeConnectVisibility();
-    if (account && account.youtube_channel_id) startYoutubeChannelWatcher();
+    // Ya no arranca la conexion real directo: se une al canal de
+    // liderazgo (ver initYoutubeLeaderChannel arriba) y es
+    // recomputeYoutubeLeader quien decide si ESTE dispositivo arranca de
+    // verdad o se queda solo reflejando lo que mande el lider.
+    if (account && account.youtube_channel_id) initYoutubeLeaderChannel();
   }
 
   // ---------- Estado de los celulares (latido de la app Android) ----------
@@ -3138,8 +3149,13 @@
       // directo viejo (el panel seguia diciendo "en directo" con el titulo
       // de otro canal) y los watchers ni llegaban a chequear el canal
       // nuevo, porque se frenan solos si creen que ya hay un chat activo.
-      disconnectYoutubeChat(false);
-      startYoutubeChannelWatcher();
+      if (isYoutubeLeader) disconnectYoutubeChat(false);
+      // Si este es el primer canal que se configura, todavia no habia
+      // razon para unirse al canal de liderazgo (ver startApp); si ya
+      // estaba unido, esto no hace nada de nuevo. isYoutubeLeader recien
+      // queda decidido cuando llegue el proximo sync de presence.
+      initYoutubeLeaderChannel();
+      if (isYoutubeLeader) startYoutubeChannelWatcher();
       updateHomeDashboard();
     } catch (err) {
       console.error(err);
@@ -4466,6 +4482,128 @@
   let ytHighlightedEl = null;
   let ytHighlightedMsgId = null;
   let ytOverlayChannel = null;
+
+  // ---------- Un solo dispositivo "lider" por cuenta para YouTube ----------
+  // Con varios dispositivos abiertos a la vez (PC + celular, por ejemplo),
+  // antes CADA UNO se conectaba a YouTube por su cuenta -- resultado: el
+  // mismo superchat se detectaba y guardaba dos veces (el filtro anti-
+  // duplicados vive en memoria de cada pestaña, no se comparte entre
+  // dispositivos, y el id que le pone cada fuente -API oficial vs scraper-
+  // es distinto, asi que ni el upsert por youtube_message_id lo atrapaba).
+  // Con Presence de Supabase, todos los dispositivos de la cuenta se anotan
+  // en el mismo canal; cada uno calcula LOCALMENTE (misma lista para todos)
+  // quien es el "lider" por prioridad (app > pc > celular, empate por quien
+  // se conecto primero) -- solo ese arranca la conexion real, los demas
+  // solo reflejan lo que el lider recibe. Si el lider se cae (cierra la
+  // pestaña/la app, pierde internet), Presence avisa al resto casi al
+  // instante y el siguiente en prioridad se promueve solo, sin heartbeat
+  // manual ni tabla nueva.
+  let ytDeviceId = null;
+  try {
+    ytDeviceId = localStorage.getItem('yape-device-id');
+    if (!ytDeviceId) {
+      ytDeviceId = crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      localStorage.setItem('yape-device-id', ytDeviceId);
+    }
+  } catch {
+    ytDeviceId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  }
+  const YT_DEVICE_KIND_RANK = { app: 0, pc: 1, mobile: 2 };
+  function ytDeviceKind() {
+    if (runningInApp) return 'app';
+    return /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent) ? 'mobile' : 'pc';
+  }
+  let ytLeaderChannel = null;
+  let isYoutubeLeader = false;
+  const ytJoinedAt = Date.now();
+
+  function computeYoutubeLeaderKey(presenceState) {
+    const entries = Object.entries(presenceState).map(([key, metas]) => ({ key, ...((metas && metas[0]) || {}) }));
+    entries.sort((a, b) => {
+      const rankDiff = (YT_DEVICE_KIND_RANK[a.kind] ?? 9) - (YT_DEVICE_KIND_RANK[b.kind] ?? 9);
+      if (rankDiff) return rankDiff;
+      return (a.joinedAt || 0) - (b.joinedAt || 0);
+    });
+    return entries[0] && entries[0].key;
+  }
+
+  // Unico punto que decide "¿arranco de verdad, o me quedo mirando?" --
+  // se llama con cada cambio de presence (alguien se unio o se cayo), asi
+  // que tambien es lo que promueve solo al siguiente en prioridad cuando
+  // el lider actual desaparece.
+  function recomputeYoutubeLeader() {
+    if (!ytLeaderChannel) return;
+    const leaderKey = computeYoutubeLeaderKey(ytLeaderChannel.presenceState());
+    const nowLeader = leaderKey === ytDeviceId;
+    if (nowLeader === isYoutubeLeader) return;
+    isYoutubeLeader = nowLeader;
+    if (isYoutubeLeader) {
+      if (account && account.youtube_channel_id) startYoutubeChannelWatcher();
+    } else {
+      if (ytLiveChatId || ytCurrentVideoId) disconnectYoutubeChat(false);
+      stopYoutubeChannelWatcher();
+    }
+    updateYoutubeFollowerUI();
+  }
+
+  function initYoutubeLeaderChannel() {
+    if (ytLeaderChannel || !account) return;
+    ytLeaderChannel = sb.channel('yt-leader-' + account.overlay_key, {
+      config: { presence: { key: ytDeviceId }, private: true },
+    });
+    ytLeaderChannel.on('presence', { event: 'sync' }, recomputeYoutubeLeader);
+    // Espejo del chat: solo lo manda el lider (ver handleYoutubeMessage),
+    // un seguidor lo pinta con la MISMA renderYoutubeMessage de siempre
+    // pero SIN pasar por insertYoutubeSuperchat -- eso ya lo hizo el lider,
+    // y el pago le llega al seguidor solo por el canal payments-changes
+    // que ya existe (por eso no hay insert duplicado nunca mas).
+    ytLeaderChannel.on('broadcast', { event: 'yt-mirror' }, ({ payload }) => {
+      if (isYoutubeLeader || !payload) return;
+      renderYoutubeMessage(payload);
+    });
+    ytLeaderChannel.on('broadcast', { event: 'yt-leader-status' }, ({ payload }) => {
+      if (isYoutubeLeader || !payload) return;
+      updateYoutubeFollowerStatus(payload);
+    });
+    ytLeaderChannel.subscribe((status) => {
+      if (status === 'SUBSCRIBED') ytLeaderChannel.track({ kind: ytDeviceKind(), joinedAt: ytJoinedAt });
+    });
+  }
+
+  function broadcastYoutubeLeaderStatus() {
+    if (!ytLeaderChannel || !isYoutubeLeader) return;
+    ytLeaderChannel.send({
+      type: 'broadcast',
+      event: 'yt-leader-status',
+      payload: { live: !!ytLiveChatId, title: ytCurrentVideoTitle },
+    });
+  }
+
+  // Un seguidor no tiene conexion propia (ytLiveChatId siempre null ahi):
+  // este es el unico lugar que le actualiza el estado/dot de "en directo"
+  // a partir de lo que el lider avisa.
+  function updateYoutubeFollowerStatus(payload) {
+    const section = document.getElementById('youtube-chat-section');
+    if (payload.live) {
+      if (section) section.style.display = '';
+      setYoutubeStatus(payload.title ? `En vivo · ${payload.title}` : 'Chat de YouTube en vivo', true);
+    } else {
+      setYoutubeStatus('Sin directo activo', false);
+    }
+  }
+
+  // Los botones de conectar/desconectar a mano no tienen sentido para un
+  // seguidor (no maneja ninguna conexion real); el aviso de "viendo desde
+  // otro dispositivo" solo aparece ahi, nunca para el lider.
+  function updateYoutubeFollowerUI() {
+    const banner = document.getElementById('youtube-follower-status');
+    const openBtn = document.getElementById('youtube-open-popout-btn');
+    const disconnectBtn = document.getElementById('youtube-disconnect-btn');
+    if (banner) banner.style.display = isYoutubeLeader ? 'none' : '';
+    if (openBtn) openBtn.style.display = isYoutubeLeader ? '' : 'none';
+    if (disconnectBtn) disconnectBtn.style.display = isYoutubeLeader ? '' : 'none';
+  }
+
   // Si la extension del navegador esta activa (ver browser-extension/), se
   // usa ella como fuente en vivo (sin retraso, sin cuota) y se pausa el
   // polling de la API mientras siga mandando mensajes; si se corta (se
@@ -4567,6 +4705,7 @@
     // streamer no tiene que acordarse de abrirlo el mismo para tener el
     // tier real de los miembros.
     postToYoutubeExtension({ source: 'yape-alert-panel', type: 'yt-chat-connected', videoId });
+    broadcastYoutubeLeaderStatus();
   }
 
   async function connectYoutubeChat() {
@@ -5324,6 +5463,12 @@
       const name = (item.authorDetails && item.authorDetails.displayName) || 'Alguien';
       toast(`🎉 ¡${name} se hizo miembro del canal!`);
     }
+    // El espejo a los seguidores no depende de si YO tengo el chat
+    // pausado (eso es una preferencia local de este dispositivo nomas):
+    // se manda siempre que este dispositivo sea el lider.
+    if (isYoutubeLeader && ytLeaderChannel) {
+      ytLeaderChannel.send({ type: 'broadcast', event: 'yt-mirror', payload: item });
+    }
     if (ytPaused) { ytPausedQueue.push(item); updateYoutubePauseBtn(); return; }
     renderYoutubeMessage(item);
   }
@@ -5454,6 +5599,10 @@
     refreshYoutubeChannelHead();
     // Si la extension abrió sola el chat popout, que lo cierre tambien sola.
     postToYoutubeExtension({ source: 'yape-alert-panel', type: 'yt-chat-disconnected' });
+    // No-op si ya no soy el lider (recomputeYoutubeLeader llama aca justo
+    // despues de bajarme a seguidor): broadcastYoutubeLeaderStatus se fija
+    // solo, no hace falta chequearlo aca tambien.
+    broadcastYoutubeLeaderStatus();
   }
   window.disconnectYoutubeChat = disconnectYoutubeChat;
 
