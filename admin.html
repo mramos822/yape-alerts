@@ -3947,7 +3947,17 @@
     while (log.children.length > max) {
       const node = log.firstChild;
       if (node.dataset && node.dataset.dashKey) dashMirroredMsgs.delete(node.dataset.dashKey);
+      // Borrar un mensaje de ARRIBA corre todo lo de abajo hacia arriba
+      // para ocupar ese espacio -- el numero de scrollTop no cambia solo,
+      // asi que lo que estabas mirando se corre igual, como si alguien
+      // hubiera scrolleado (mas notorio en un celular, donde el chat es
+      // bajito y ese corrimiento es una porcion grande de lo visible). Se
+      // mide cuanto se achico scrollHeight de verdad (cuenta el gap entre
+      // mensajes solo, no hace falta calcularlo a mano) y se descuenta lo
+      // mismo de scrollTop para que la vista quede exactamente pinneada.
+      const heightBefore = log.scrollHeight;
       node.remove();
+      log.scrollTop -= (heightBefore - log.scrollHeight);
     }
   }
 
