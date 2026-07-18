@@ -4063,22 +4063,38 @@
   // mas viejo primero, sea cual sea su tipo (el problema real de que
   // "desaparecian antes de que salga el scroll" era que los flex items no
   // tenian flex-shrink:0, ver .kick-msg/.yt-superchat-card).
+  // No toca scrollTop aca: eso lo maneja quien llama (ver
+  // withStableScroll), midiendo la distancia al fondo UNA sola vez de
+  // punta a punta en vez de ir corrigiendo a los parches por cada nodo
+  // que se borra -- con un chat activo (150 mensajes se llenan rapido en
+  // el combinado del Dashboard, que junta Kick + YouTube) podar de a uno
+  // por mensaje nuevo significaba corregir scrollTop en cada insercion, y
+  // cualquier desvio chico ahi se notaba e iba creciendo con el tiempo.
   function pruneLogOldest(log, max) {
     while (log.children.length > max) {
       const node = log.firstChild;
       if (node.dataset && node.dataset.dashKey) dashMirroredMsgs.delete(node.dataset.dashKey);
-      // Borrar un mensaje de ARRIBA corre todo lo de abajo hacia arriba
-      // para ocupar ese espacio -- el numero de scrollTop no cambia solo,
-      // asi que lo que estabas mirando se corre igual, como si alguien
-      // hubiera scrolleado (mas notorio en un celular, donde el chat es
-      // bajito y ese corrimiento es una porcion grande de lo visible). Se
-      // mide cuanto se achico scrollHeight de verdad (cuenta el gap entre
-      // mensajes solo, no hace falta calcularlo a mano) y se descuenta lo
-      // mismo de scrollTop para que la vista quede exactamente pinneada.
-      const heightBefore = log.scrollHeight;
       node.remove();
-      log.scrollTop -= (heightBefore - log.scrollHeight);
     }
+  }
+
+  // Envuelve un append (o varios) al chat preservando exactamente donde
+  // estaba mirando el streamer: si ya estaba pegado al fondo, sigue
+  // pegado al fondo con el mensaje nuevo (comportamiento de siempre); si
+  // habia scrolleado hacia arriba a leer algo, la distancia a la que
+  // estaba del fondo se recalcula DESPUES de insertar y podar -- en vez
+  // de sumar/restar deltas a mano en cada paso (insertar Y podar cambian
+  // el alto por separado), que es donde se colaba el desvio que hacia
+  // "saltar" el chat con la barra scrolleada hacia arriba mientras
+  // seguian llegando mensajes.
+  function withStableScroll(log, max, mutate) {
+    const distanceFromBottom = log.scrollHeight - log.scrollTop - log.clientHeight;
+    const wasNearBottom = distanceFromBottom < 12;
+    mutate();
+    pruneLogOldest(log, max);
+    log.scrollTop = wasNearBottom
+      ? log.scrollHeight
+      : Math.max(0, log.scrollHeight - log.clientHeight - distanceFromBottom);
   }
 
   function setKickStatus(text, live) {
@@ -4278,12 +4294,6 @@
     if (key && dashMirroredMsgs.has(key)) return;
     const empty = log.querySelector('.kick-chat-empty');
     if (empty) empty.remove();
-    // Umbral chico a proposito (antes 40px): en un chat bajito (celular,
-    // o el achicado con la lupa) 40px es casi nada scrolleado hacia
-    // arriba y ya contaba como "seguis mirando el final", asi que
-    // cualquier mensaje nuevo te devolvia al fondo aunque hubieras
-    // scrolleado a proposito para leer algo de mas arriba.
-    const wasNearBottom = log.scrollHeight - log.scrollTop - log.clientHeight < 12;
     const clone = sourceDiv.cloneNode(true);
     const icon = document.createElement('img');
     icon.className = 'dash-src-icon';
@@ -4306,9 +4316,7 @@
       }
     });
     if (key) { clone.dataset.dashKey = key; dashMirroredMsgs.set(key, clone); }
-    log.appendChild(clone);
-    pruneLogOldest(log, DASH_LOG_MAX);
-    if (wasNearBottom) log.scrollTop = log.scrollHeight;
+    withStableScroll(log, DASH_LOG_MAX, () => log.appendChild(clone));
   }
 
   // Pausar/borrar del Dashboard actuan sobre los DOS chats de origen (no es
@@ -4363,15 +4371,6 @@
     const log = document.getElementById('kick-chat-log');
     const empty = log.querySelector('.kick-chat-empty');
     if (empty) empty.remove();
-    // Si el streamer esta leyendo mensajes viejos mas arriba, un mensaje
-    // nuevo no debe arrastrarlo de golpe al fondo: solo se sigue pegado
-    // al final si ya estaba ahi (con un margen chico de tolerancia).
-    // Umbral chico a proposito (antes 40px): en un chat bajito (celular,
-    // o el achicado con la lupa) 40px es casi nada scrolleado hacia
-    // arriba y ya contaba como "seguis mirando el final", asi que
-    // cualquier mensaje nuevo te devolvia al fondo aunque hubieras
-    // scrolleado a proposito para leer algo de mas arriba.
-    const wasNearBottom = log.scrollHeight - log.scrollTop - log.clientHeight < 12;
     const username = payload.sender?.username || '?';
     const rawColor = payload.sender?.identity?.color || '';
     const color = /^#[0-9a-fA-F]{3,8}$/.test(rawColor) ? rawColor : '';
@@ -4381,14 +4380,9 @@
     div.innerHTML = `<span class="kick-who"><span class="kick-msg-time">${escapeHtml(formatKickTime(payload))}</span><span class="kick-user"${color ? ` style="color:${escapeHtml(color)}"` : ''}>${escapeHtml(username)}:</span>${renderKickBadges(payload.sender?.identity?.badges)}</span> ${renderKickContent(payload.content)}`;
     if (window.twemoji) twemoji.parse(div);
     div.addEventListener('click', () => toggleKickHighlight(payload, div));
-    log.appendChild(div);
-    // pruneLogOldest (no un removeChild directo): borrar de arriba sin
-    // corregir scrollTop corria todo el contenido hacia arriba y perdias
-    // el lugar donde estabas leyendo -- el chat "saltaba" solo. Kick era
-    // el unico de los tres logs (Kick/YouTube/Dashboard) que todavia lo
-    // hacia asi.
-    pruneLogOldest(log, KICK_LOG_MAX);
-    if (wasNearBottom) log.scrollTop = log.scrollHeight;
+    // Si el streamer esta leyendo mensajes viejos mas arriba, un mensaje
+    // nuevo no debe arrastrarlo de golpe al fondo (ver withStableScroll).
+    withStableScroll(log, KICK_LOG_MAX, () => log.appendChild(div));
     mirrorToDashboardChat(div, 'kick', payload.id || `${payload.sender?.username}-${payload.created_at}`);
     // Precarga la foto de perfil apenas se ve el mensaje, no recien al
     // clickear, para que resaltarlo salga instantaneo la mayoria de las veces.
@@ -5566,12 +5560,6 @@
     const log = document.getElementById('youtube-chat-log');
     const empty = log.querySelector('.kick-chat-empty');
     if (empty) empty.remove();
-    // Umbral chico a proposito (antes 40px): en un chat bajito (celular,
-    // o el achicado con la lupa) 40px es casi nada scrolleado hacia
-    // arriba y ya contaba como "seguis mirando el final", asi que
-    // cualquier mensaje nuevo te devolvia al fondo aunque hubieras
-    // scrolleado a proposito para leer algo de mas arriba.
-    const wasNearBottom = log.scrollHeight - log.scrollTop - log.clientHeight < 12;
     const author = item.authorDetails || {};
     const type = item.snippet && item.snippet.type;
     const isSuperchat = type === 'superChatEvent' || type === 'superStickerEvent';
@@ -5659,9 +5647,7 @@
       // propia tarjeta verde en vez de tener que resaltarla a mano.
       toggleYoutubeHighlight(item, div);
     });
-    log.appendChild(div);
-    pruneLogOldest(log, KICK_LOG_MAX);
-    if (wasNearBottom) log.scrollTop = log.scrollHeight;
+    withStableScroll(log, KICK_LOG_MAX, () => log.appendChild(div));
     mirrorToDashboardChat(div, 'youtube', item.id);
   }
 
