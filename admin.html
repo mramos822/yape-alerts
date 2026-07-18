@@ -4421,6 +4421,12 @@
     // gastamos otra llamada de 100 unidades para "confirmar" lo que ya
     // sabemos; solo watcheamos mientras esta desconectado.
     if (ytLiveChatId || ytAutoConnecting) return;
+    // El candado se pone ANTES de la llamada de red, no despues: sino, los
+    // dos watchers (este y checkYoutubeLiveViaProxy, que arrancan casi
+    // juntos en startYoutubeChannelWatcher) pasan el chequeo de arriba los
+    // dos con ytAutoConnecting todavia en false, y si ambos encuentran el
+    // mismo video en vivo terminan conectando/abriendo el popout DOS veces.
+    ytAutoConnecting = true;
     try {
       const data = await callYoutubeApi('search', {
         part: 'snippet',
@@ -4429,12 +4435,13 @@
         type: 'video',
       });
       const videoId = data.items && data.items[0] && data.items[0].id && data.items[0].id.videoId;
-      if (videoId && !ytLiveChatId && !ytAutoConnecting) {
-        ytAutoConnecting = true;
-        try { await connectToYoutubeVideo(videoId, true); } finally { ytAutoConnecting = false; }
+      if (videoId && !ytLiveChatId) {
+        await connectToYoutubeVideo(videoId, true);
       }
     } catch (err) {
       console.error(err);
+    } finally {
+      ytAutoConnecting = false;
     }
   }
 
@@ -4451,18 +4458,23 @@
   async function checkYoutubeLiveViaProxy() {
     if (!account || !account.youtube_channel_id) return;
     if (ytLiveChatId || ytAutoConnecting) return;
+    // Mismo motivo que en checkYoutubeChannelLive: el candado va ANTES del
+    // fetch, no despues, para que los dos watchers no pasen el chequeo de
+    // arriba al mismo tiempo y terminen conectando dos veces.
+    ytAutoConnecting = true;
     try {
       const res = await fetch(
         `${SUPABASE_URL}/functions/v1/youtube-live-check?channelId=${encodeURIComponent(account.youtube_channel_id)}`,
         { headers: { apikey: SUPABASE_ANON_KEY } }
       );
       const data = await res.json();
-      if (data && data.live && data.videoId && !ytLiveChatId && !ytAutoConnecting) {
-        ytAutoConnecting = true;
-        try { await connectToYoutubeVideo(data.videoId, true); } finally { ytAutoConnecting = false; }
+      if (data && data.live && data.videoId && !ytLiveChatId) {
+        await connectToYoutubeVideo(data.videoId, true);
       }
     } catch (err) {
       console.error(err);
+    } finally {
+      ytAutoConnecting = false;
     }
   }
 
