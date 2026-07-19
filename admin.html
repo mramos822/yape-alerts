@@ -3410,7 +3410,13 @@
   function toast(msg) {}
 
   function amountVal(p) {
-    return `${p.amount || '0.00'}`;
+    // Yape: Supabase guarda el monto como numeric, que al volver como JSON
+    // pierde los ceros ("5.00" insertado vuelve como 5) -- se repone aca
+    // para que siempre se vea con 2 decimales. YouTube trae el texto crudo
+    // del superchat (con su propio simbolo de moneda), eso no se toca.
+    if (p.source === 'youtube') return `${p.amount || '0.00'}`;
+    const n = parseFloat(p.amount);
+    return Number.isFinite(n) ? n.toFixed(2) : (p.amount || '0.00');
   }
 
   // Los superchats guardan el avatar del autor de YouTube en `raw` (como
@@ -3512,10 +3518,13 @@
 
     const st = statusInfo(p);
     const isYoutube = p.source === 'youtube';
-    const initial = (p.name || '?').trim().charAt(0).toUpperCase();
+    // Yape enmascara el apellido truncado con un asterisco ("Mariano Ram*"):
+    // se saca de la vista, que se lea "Ram" en vez de "Ram*".
+    const displayName = (p.name || '').replace(/\*+\s*$/, '').trim();
+    const initial = (displayName || '?').charAt(0).toUpperCase();
     const ytMeta = isYoutube ? parseYoutubeRaw(p.raw) : null;
     const avatarHtml = ytMeta && ytMeta.avatar
-      ? `<img src="${escapeHtml(ytMeta.avatar)}" alt="${escapeHtml(p.name || '')}">`
+      ? `<img src="${escapeHtml(ytMeta.avatar)}" alt="${escapeHtml(displayName)}">`
       : initial;
     const topBadge = (!isYoutube && (parseFloat(p.amount) || 0) >= 50) ? '<span class="top">★ TOP YAPE</span>' : '';
     const amountHtml = isYoutube
@@ -3528,7 +3537,7 @@
       </div>
       <div class="card-avatar">${avatarHtml}</div>
       <div class="card-main">
-        <span class="card-name">${escapeHtml(p.name || 'Anónimo')}</span>
+        <span class="card-name">${escapeHtml(displayName || 'Anónimo')}</span>
         <span class="card-status status-${st.cls}">${st.text}</span>
         <span class="card-time">${timeText(p)}</span>
       </div>

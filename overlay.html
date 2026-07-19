@@ -19,7 +19,7 @@
     --name-color: #06251f;
     --message-bg-color: #20E7B9;
     --message-color: #06251f;
-    --author-font-size: 17px;
+    --author-font-size: 20px;
     --author-font-weight: 700;
 
     --donation-color: #5a4211;
@@ -125,7 +125,7 @@
   .text {
     color: var(--message-color);
     font-weight: 700;
-    font-size: 19px;
+    font-size: 22px;
     line-height: 1.35;
     word-break: break-word;
   }
@@ -439,6 +439,19 @@
     return '#00E5F9';
   }
 
+  // Un yape ya no varia de color por tramo de monto: siempre este morado
+  // oscuro fijo (a diferencia de los superchats de YouTube, que si siguen
+  // el tramo de color por monto via ytTierColor).
+  const YAPE_COLOR = '#3D1450';
+
+  // Supabase guarda el monto como numeric, que al volver como JSON pierde
+  // los ceros ("5.00" insertado vuelve como 5): se repone aca para que el
+  // panelito del overlay siempre muestre 2 decimales.
+  function yapeAmountText(amount) {
+    const n = parseFloat(amount);
+    return Number.isFinite(n) ? n.toFixed(2) : (amount || '0.00');
+  }
+
   // Los 7 colores oficiales de tramo de Super Chat (azul, celeste, verde,
   // amarillo, naranja, magenta, rojo). El monto minimo de cada tramo NO es
   // el mismo numero en todas las monedas: YouTube lo redondea a un numero
@@ -626,7 +639,9 @@
     stack.querySelectorAll('.superchat').forEach((el) => el.remove());
     cardsById.clear();
 
-    const name = payment.name || 'Alguien';
+    // Yape enmascara el apellido truncado con un asterisco ("Mariano Ram*"):
+    // se saca, que se lea "Ram" en vez de "Ram*".
+    const name = (payment.name || 'Alguien').replace(/\*+\s*$/, '').trim() || 'Alguien';
     const isKick = payment.source === 'kick';
     const isYoutube = payment.source === 'youtube';
     // Un superchat aprobado (viene de payments, via syncCurrent) y un
@@ -634,19 +649,23 @@
     // comparten source='youtube', pero se pintan distinto: el highlight
     // trae `content` (aunque sea texto vacio) y el superchat no.
     const isChatHighlight = (isKick || isYoutube) && payment.content !== undefined;
+    // Un yape ya no sigue el tramo de color por monto (eso queda solo para
+    // superchats de YouTube): siempre el mismo morado oscuro, con letras
+    // blancas en vez de negras para que se lea bien encima de ese fondo.
+    const isYape = !isKick && !isYoutube;
     // El highlight de un mensaje de chat de YouTube tiene su color propio
     // (#03E7C0); un superchat ya aprobado sigue la misma regla de color por
-    // monto que un yape (tierColor), no un color fijo.
+    // monto (ytTierColor), no un color fijo.
     const nameColor = isKick ? '#FFA606'
       : (isYoutube && isChatHighlight) ? '#03E7C0'
       : isYoutube ? ytTierColor(payment.amount)
-      : tierColor(payment.amount);
+      : YAPE_COLOR;
     const messageColor = isChatHighlight ? '#222222' : nameColor;
     const el = document.createElement('div');
     el.className = 'superchat';
     el.style.setProperty('--name-bg-color', nameColor);
     el.style.setProperty('--message-bg-color', messageColor);
-    el.style.setProperty('--message-color', isChatHighlight ? '#F2F2F2' : '#06251f');
+    el.style.setProperty('--message-color', (isChatHighlight || isYape) ? '#F2F2F2' : '#06251f');
     el.style.setProperty('--author-avatar-border-color', nameColor);
     // El avatar real llega directo en el highlight (payment.avatar); para un
     // superchat aprobado va guardado en `raw` (payments no tiene columna
@@ -674,7 +693,7 @@
         ? ''
         : isYoutube
           ? `<div class="donation"><div class="donation-title">DONATION</div><div class="donation-subtitle">${escapeHtml(payment.amount || '')}</div></div>`
-          : `<div class="donation"><div class="donation-title">YAPE</div><div class="donation-subtitle">S/. ${payment.amount || '0.00'}</div></div>`;
+          : `<div class="donation"><div class="donation-title">YAPE</div><div class="donation-subtitle">S/. ${yapeAmountText(payment.amount)}</div></div>`;
     const nameLine = isChatHighlight
       ? `${escapeHtml(name)}${isKick ? renderKickBadges(payment.badges) : renderYtBadgesCombined(payment.badges, payment.badgeImages)}`
       : escapeHtml(name);
