@@ -70,7 +70,7 @@
     max-width: 1100px;
     min-width: 80px;
     background: var(--message-panel-bg, var(--message-bg-color));
-    padding: 12px 60px 12px 56px;
+    padding: 12px 28px 12px 56px;
     box-shadow: 0 5px 10px -3px rgba(0, 0, 0, 0.4), 5px 0 10px -3px rgba(0, 0, 0, 0.4);
   }
 
@@ -715,7 +715,7 @@
       : isChatHighlight
         ? ''
         : isYoutube
-          ? `<div class="donation"><div class="donation-title">DONATION</div><div class="donation-subtitle">${escapeHtml(payment.amount || '')}</div></div>`
+          ? `<div class="donation"><div class="donation-title">SUPERCHAT</div><div class="donation-subtitle">${escapeHtml(payment.amount || '')}</div></div>`
           : `<div class="donation"><div class="donation-title">YAPE</div><div class="donation-subtitle">S/. ${yapeAmountText(payment.amount)}</div></div>`;
     const nameLine = isChatHighlight
       ? `${escapeHtml(name)}${isKick ? renderKickBadges(payment.badges) : renderYtBadgesCombined(payment.badges, payment.badgeImages)}`
