@@ -442,7 +442,7 @@
   // Un yape ya no varia de color por tramo de monto: siempre este morado
   // oscuro fijo (a diferencia de los superchats de YouTube, que si siguen
   // el tramo de color por monto via ytTierColor).
-  const YAPE_COLOR = '#3D1450';
+  const YAPE_COLOR = '#4A1D63';
 
   // Supabase guarda el monto como numeric, que al volver como JSON pierde
   // los ceros ("5.00" insertado vuelve como 5): se repone aca para que el
@@ -671,7 +671,7 @@
     // Yape: degradado leve de derecha a izquierda en vez de un morado plano,
     // tanto en el cuadro del nombre como en el del mensaje.
     if (isYape) {
-      const gradient = `linear-gradient(to left, ${nameColor}, color-mix(in srgb, ${nameColor} 70%, black))`;
+      const gradient = `linear-gradient(to right, ${nameColor}, color-mix(in srgb, ${nameColor} 82%, black))`;
       el.style.setProperty('--name-panel-bg', gradient);
       el.style.setProperty('--message-panel-bg', gradient);
     }
