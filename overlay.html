@@ -452,6 +452,20 @@
     return Number.isFinite(n) ? n.toFixed(2) : (amount || '0.00');
   }
 
+  // Oscurece un color hex mezclandolo con negro, sin usar color-mix(): el
+  // navegador embebido de OBS puede no soportarlo, y ahi el background
+  // completo se invalida (el fallback de var() no aplica en ese caso), asi
+  // que el panel de yape quedaba invisible. Un rgb() calculado a mano
+  // funciona en cualquier version.
+  function mixWithBlack(hex, pct) {
+    const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex || '');
+    if (!m) return hex;
+    const r = Math.round(parseInt(m[1], 16) * pct / 100);
+    const g = Math.round(parseInt(m[2], 16) * pct / 100);
+    const b = Math.round(parseInt(m[3], 16) * pct / 100);
+    return `rgb(${r}, ${g}, ${b})`;
+  }
+
   // Los 7 colores oficiales de tramo de Super Chat (azul, celeste, verde,
   // amarillo, naranja, magenta, rojo). El monto minimo de cada tramo NO es
   // el mismo numero en todas las monedas: YouTube lo redondea a un numero
@@ -671,7 +685,7 @@
     // Yape: degradado leve de derecha a izquierda en vez de un morado plano,
     // tanto en el cuadro del nombre como en el del mensaje.
     if (isYape) {
-      const gradient = `linear-gradient(to right, ${nameColor}, color-mix(in srgb, ${nameColor} 82%, black))`;
+      const gradient = `linear-gradient(to right, ${nameColor}, ${mixWithBlack(nameColor, 82)})`;
       el.style.setProperty('--name-panel-bg', gradient);
       el.style.setProperty('--message-panel-bg', gradient);
     }
