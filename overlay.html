@@ -69,7 +69,7 @@
     left: 40px;
     max-width: 760px;
     min-width: 80px;
-    background: var(--message-bg-color);
+    background: var(--message-panel-bg, var(--message-bg-color));
     padding: 12px 20px 12px 56px;
   }
 
@@ -114,7 +114,7 @@
     top: -30px;
     left: 20px;
     font-weight: var(--author-font-weight);
-    background: var(--name-bg-color);
+    background: var(--name-panel-bg, var(--name-bg-color));
     color: var(--name-color);
     padding: 8px 14px;
     z-index: 2;
@@ -666,7 +666,15 @@
     el.style.setProperty('--name-bg-color', nameColor);
     el.style.setProperty('--message-bg-color', messageColor);
     el.style.setProperty('--message-color', (isChatHighlight || isYape) ? '#F2F2F2' : '#06251f');
+    el.style.setProperty('--name-color', isYape ? '#F2F2F2' : '#06251f');
     el.style.setProperty('--author-avatar-border-color', nameColor);
+    // Yape: degradado leve de derecha a izquierda en vez de un morado plano,
+    // tanto en el cuadro del nombre como en el del mensaje.
+    if (isYape) {
+      const gradient = `linear-gradient(to left, ${nameColor}, color-mix(in srgb, ${nameColor} 70%, black))`;
+      el.style.setProperty('--name-panel-bg', gradient);
+      el.style.setProperty('--message-panel-bg', gradient);
+    }
     // El avatar real llega directo en el highlight (payment.avatar); para un
     // superchat aprobado va guardado en `raw` (payments no tiene columna
     // dedicada para eso, ver insertYoutubeSuperchat en admin.html).
