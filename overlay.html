@@ -19,7 +19,7 @@
     --name-color: #06251f;
     --message-bg-color: #20E7B9;
     --message-color: #06251f;
-    --author-font-size: 15px;
+    --author-font-size: 17px;
     --author-font-weight: 700;
 
     --donation-color: #5a4211;
@@ -125,7 +125,7 @@
   .text {
     color: var(--message-color);
     font-weight: 700;
-    font-size: 17px;
+    font-size: 19px;
     line-height: 1.35;
     word-break: break-word;
   }
@@ -658,7 +658,9 @@
     const avatar = (isChatHighlight || isYoutube)
       ? (avatarUrl
           ? `<img src="${escapeHtml(avatarUrl)}" alt="${escapeHtml(name)}">`
-          : `<div class="hl-initial">${escapeHtml(name.trim().charAt(0).toUpperCase() || '?')}</div>`)
+          : isKick
+            ? `<img src="pfpdefault.png" alt="${escapeHtml(name)}">`
+            : `<div class="hl-initial">${escapeHtml(name.trim().charAt(0).toUpperCase() || '?')}</div>`)
       : yapeLogoSvg;
     // El "panelito" dorado de monto es normalmente solo para yapes y
     // superchats (un mensaje de chat resaltado comun no lo tiene), pero un

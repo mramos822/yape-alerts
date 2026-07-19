@@ -785,7 +785,7 @@
      ahora que el nombre nunca se recorta (ver .card-name). El html{
      overflow-x:hidden} general no alcanza aca porque este es OTRO
      contenedor con scroll propio, no el de la pagina entera. */
-  #dashboard-cards { display: flex; flex-direction: column; gap: 12px; max-height: calc(100vh - 340px); min-height: 280px; overflow-y: auto; overflow-x: hidden; padding: 2px; }
+  #dashboard-cards { display: flex; flex-direction: column; gap: 12px; max-height: calc(100vh - 240px); min-height: 280px; overflow-y: auto; overflow-x: hidden; padding: 2px; }
   /* Lupa +/- de las tarjetas de pagos del Dashboard: zoom (no transform)
      para que la tarjeta ocupe su tamaño real agrandado/achicado dentro del
      flujo de la lista, en vez de superponerse con las de al lado. */
@@ -2020,7 +2020,7 @@
       height: calc(100vh - 460px);
       min-height: 260px;
     }
-    #dashboard-cards { max-height: calc(100vh - 490px); min-height: 260px; }
+    #dashboard-cards { max-height: calc(100vh - 390px); min-height: 260px; }
     /* ---------- Viñeta del Dashboard y tabs/toolbar ---------- */
     /* "Solo chat" a la par de "Chat combinado"/"Pagos" (no empujado solo
        contra el borde derecho, que en un renglon angosto lo mandaba a su
@@ -3729,7 +3729,7 @@
   }
 
   function dashboardCardColor(p) {
-    return p.source === 'youtube' ? ytTierColor(p.amount) : tierColor(p.amount);
+    return p.source === 'youtube' ? ytTierColor(p.amount) : '#6E2D8F';
   }
 
   function escapeHtml(s) {
