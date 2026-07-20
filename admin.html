@@ -1587,6 +1587,25 @@
     gap: 3px;
     vertical-align: middle;
   }
+  /* Foto de perfil chica al lado del nombre en el chat (Kick/YouTube), en
+     linea con el mismo estilo circular que ya usan el avatar de Super Chat
+     y el de las tarjetas de pago -- si todavia no se resolvio la foto (ver
+     resolveKickAvatar), se muestra la inicial mientras tanto. */
+  .chat-avatar {
+    width: 1.3em;
+    height: 1.3em;
+    border-radius: 50%;
+    overflow: hidden;
+    flex-shrink: 0;
+    background: var(--accent-100, rgba(127,127,127,.25));
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.8em;
+    font-weight: 900;
+    color: var(--accent);
+  }
+  .chat-avatar img { width: 100%; height: 100%; object-fit: cover; }
   .kick-msg .kick-user { font-weight: 900; color: var(--accent); }
   .kick-chat-empty { color: var(--ink-mute); font-size: 14.9px; font-weight: 700; padding: 6px 2px; }
   /* Imagen real de Twemoji para banderas/emoji (Windows no las dibuja bien
@@ -3517,7 +3536,10 @@
     // Yape enmascara el apellido truncado con un asterisco ("Mariano Ram*"):
     // se saca de la vista, que se lea "Ram" en vez de "Ram*".
     const displayName = (p.name || '').replace(/\*+\s*$/, '').trim();
-    const initial = (displayName || '?').charAt(0).toUpperCase();
+    // YouTube a veces manda el @handle en vez del nombre visible: sin este
+    // strip, la inicial del avatar mostraba literalmente "@" en vez de la
+    // primera letra real del handle.
+    const initial = (displayName.replace(/^@+/, '') || displayName || '?').charAt(0).toUpperCase();
     const ytMeta = isYoutube ? parseYoutubeRaw(p.raw) : null;
     const avatarHtml = ytMeta && ytMeta.avatar
       ? `<img src="${escapeHtml(ytMeta.avatar)}" alt="${escapeHtml(displayName)}">`
@@ -4254,10 +4276,50 @@
         // de esta pestana: le avisamos la URL apenas se conoce para que
         // baje la imagen en segundo plano, antes de que alguien la resalte.
         if (url) preloadKickAvatarOnOverlay(url);
+        // Los mensajes de este slug ya pintados en el chat (ver
+        // renderKickMessage) todavia muestran la inicial de respaldo porque
+        // se dibujaron antes de que esta promesa resolviera: se actualizan
+        // aca en cuanto se sabe la foto real (o el default de Kick si esa
+        // cuenta no tiene foto puesta).
+        updateChatAvatarSpans(slug, url || KICK_DEFAULT_PFP);
         return url;
       });
     kickAvatarPending.set(slug, p);
     return p;
+  }
+
+  // Circulito de foto de perfil al lado del nombre en el chat. Si todavia
+  // no se conoce la foto (Kick la resuelve aparte, ver resolveKickAvatar),
+  // se pinta la inicial con un data-attribute para que updateChatAvatarSpans
+  // la reemplace en cuanto la foto real este lista, sin tener que
+  // redibujar el mensaje entero.
+  function chatAvatarHtml(imgUrl, name, pendingKey) {
+    if (imgUrl) return `<span class="chat-avatar"><img src="${escapeHtml(imgUrl)}" alt=""></span>`;
+    const initial = escapeHtml(((name || '').replace(/^@+/, '') || name || '?').charAt(0).toUpperCase());
+    const attr = pendingKey ? ` data-chat-avatar-key="${escapeHtml(pendingKey)}"` : '';
+    return `<span class="chat-avatar"${attr}>${initial}</span>`;
+  }
+
+  // Kick no siempre tiene foto de perfil real (cuentas sin avatar puesto):
+  // mismo criterio que ya usa el overlay (ver isKick en showCard) -- ahi se
+  // usa images/pfpdefault.png en vez de una inicial, asi que el chat del
+  // panel hace lo mismo para que se vea igual.
+  const KICK_DEFAULT_PFP = 'images/pfpdefault.png';
+  function kickAvatarHtml(slug, username) {
+    if (kickAvatarCache.has(slug)) {
+      const url = kickAvatarCache.get(slug) || KICK_DEFAULT_PFP;
+      return `<span class="chat-avatar"><img src="${escapeHtml(url)}" alt=""></span>`;
+    }
+    const initial = escapeHtml((username || '?').charAt(0).toUpperCase());
+    return `<span class="chat-avatar" data-chat-avatar-key="${escapeHtml(slug || '')}">${initial}</span>`;
+  }
+
+  function updateChatAvatarSpans(pendingKey, imgUrl) {
+    if (!pendingKey || !imgUrl) return;
+    document.querySelectorAll(`.chat-avatar[data-chat-avatar-key="${CSS.escape(pendingKey)}"]`).forEach((span) => {
+      span.innerHTML = `<img src="${escapeHtml(imgUrl)}" alt="">`;
+      span.removeAttribute('data-chat-avatar-key');
+    });
   }
 
   function preloadKickAvatarOnOverlay(url) {
@@ -4438,12 +4500,14 @@
     const empty = log.querySelector('.kick-chat-empty');
     if (empty) empty.remove();
     const username = payload.sender?.username || '?';
+    const slug = payload.sender?.slug || username;
     const rawColor = payload.sender?.identity?.color || '';
     const color = /^#[0-9a-fA-F]{3,8}$/.test(rawColor) ? rawColor : '';
+    const avatarHtml = kickAvatarHtml(slug, username);
     const div = document.createElement('div');
     div.className = 'kick-msg';
     div.title = 'Click para mostrar este mensaje en el overlay';
-    div.innerHTML = `<span class="kick-who"><span class="kick-msg-time">${escapeHtml(formatKickTime(payload))}</span><span class="kick-user"${color ? ` style="color:${escapeHtml(color)}"` : ''}>${escapeHtml(username)}:</span>${renderKickBadges(payload.sender?.identity?.badges)}</span> ${renderKickContent(payload.content)}`;
+    div.innerHTML = `<span class="kick-who"><span class="kick-msg-time">${escapeHtml(formatKickTime(payload))}</span>${avatarHtml}<span class="kick-user"${color ? ` style="color:${escapeHtml(color)}"` : ''}>${escapeHtml(username)}:</span>${renderKickBadges(payload.sender?.identity?.badges)}</span> ${renderKickContent(payload.content)}`;
     if (window.twemoji) twemoji.parse(div);
     div.addEventListener('click', () => toggleKickHighlight(payload, div));
     markStripe(log, div);
@@ -5667,9 +5731,13 @@
         : '';
       const color = isNewMember ? '#0F9D58' : ytTierColor(amountText);
       div.style.setProperty('--sc-color', color);
+      // YouTube a veces manda el @handle en vez del nombre visible: sin este
+      // strip, la inicial del avatar mostraba literalmente "@" en vez de la
+      // primera letra real del handle.
+      const scName = (author.displayName || '').replace(/^@+/, '') || author.displayName || '?';
       const avatarHtml = author.profileImageUrl
         ? `<img src="${escapeHtml(author.profileImageUrl)}" alt="">`
-        : `<span class="yt-superchat-avatar-fallback">${escapeHtml((author.displayName || '?').slice(0, 1).toUpperCase())}</span>`;
+        : `<span class="yt-superchat-avatar-fallback">${escapeHtml(scName.slice(0, 1).toUpperCase())}</span>`;
       // El logo/insignia de miembro (badgesHtml) no va en la tarjeta de
       // "nuevo miembro": es redundante, la tarjeta entera ya dice que lo es.
       const nameBadges = isNewMember ? '' : `<span class="yt-badges-slot" data-yt-author="${escapeHtml(author.displayName || '')}">${badgesHtml}</span>`;
@@ -5692,7 +5760,8 @@
       // icono real todavia) se actualiza solo apenas llega el dato real de
       // la extension, en vez de quedarse pegado con el chip de texto hasta
       // el proximo mensaje nuevo.
-      div.innerHTML = `<span class="kick-who"><span class="kick-msg-time">${escapeHtml(ytMessageTime(item))}</span><span class="kick-user">${escapeHtml(author.displayName || '?')}:</span><span class="yt-badges-slot" data-yt-author="${escapeHtml(author.displayName || '')}">${badgesHtml}</span>${milestoneTag}</span> ${renderYoutubeContent(contentText)}`;
+      const ytAvatarHtml = chatAvatarHtml(author.profileImageUrl, author.displayName);
+      div.innerHTML = `<span class="kick-who"><span class="kick-msg-time">${escapeHtml(ytMessageTime(item))}</span>${ytAvatarHtml}<span class="kick-user">${escapeHtml(author.displayName || '?')}:</span><span class="yt-badges-slot" data-yt-author="${escapeHtml(author.displayName || '')}">${badgesHtml}</span>${milestoneTag}</span> ${renderYoutubeContent(contentText)}`;
       markStripe(log, div);
     }
     if (window.twemoji) twemoji.parse(div);
